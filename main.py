@@ -1,9 +1,11 @@
 import math
 import os
+from datetime import datetime
 
 import pandas as pd
 
 from services.services import Services
+from services.connexion_to_sql_server import connect_with_pymssql
 
 
 def update_progress_label(progressbar, art_ref, check_last=None):
@@ -12,7 +14,7 @@ def update_progress_label(progressbar, art_ref, check_last=None):
     return f"Article: {art_ref} \nProgression: {math.ceil(progressbar['value'])}%"
 
 
-def progress(var, root_pb, progressbar, value_label, article, check):
+def progress(var, progressbar, value_label, article, check):
     if progressbar['value'] < 100:
         progressbar['value'] += var
         value_label['text'] = ''
@@ -572,9 +574,22 @@ def main_process(file_path):
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
+    time_now = datetime.now()
+    path = r'''D:\sage donnees\ALU\Devis 1\base_DEVIS.xlsx'''
+    devis_from_export = pd.read_excel(path, sheet_name=pd.ExcelFile(path).sheet_names[0], header=None)
     pass
+    dict_docentete = process_docentete_df(df_export=devis_from_export)
+    do_piece, date_document, do_ref, deposit = dict_docentete['do_piece'], dict_docentete['do_date'], dict_docentete['do_ref'], 1
+    client_name = Services.find_code_client(dict_docentete['client_name'])
+    date_hour = date_hour = "{}{:02d}{:02d}{:02d}".format("000", time_now.hour, time_now.minute, time_now.second)
+    work_site = 'test_chantier'
+    connexion = connect_with_pymssql(server='RAVALOHERY-PC', database='ALU_SQL')
+    try:
+        connex = connexion.connect()
+    except Exception as e:
+        print("An error occurred on the connexion into the server! as ", e)
     # the new method for writing the sql query is to define the number of field to equal with the number of the value field
-    sql_docentete = """INSERT INTO   [dbo].  [F_DOCENTETE]([DO_Domaine],  [DO_Type],  [DO_Piece],  [DO_Date],  [DO_Ref],  [DO_Tiers],  
+    sql_docentete = f"""INSERT INTO   [dbo].  [F_DOCENTETE]([DO_Domaine],  [DO_Type],  [DO_Piece],  [DO_Date],  [DO_Ref],  [DO_Tiers],  
                         [CO_No],  [DO_Period],  [DO_Devise],  [DO_Cours],  [DE_No],  [LI_No],  [CT_NumPayeur],  [DO_Expedit],  
                         [DO_NbFacture],  [DO_BLFact],  [DO_TxEscompte],  [DO_Reliquat],  [DO_Imprim],  [CA_Num],  [DO_Coord01],  
                         [DO_Coord02],  [DO_Coord03],  [DO_Coord04],  [DO_Souche],  [DO_DateLivr],  [DO_Condition],  [DO_Tarif],  
@@ -595,26 +610,45 @@ if __name__ == '__main__':
                                0, '', 0, 0, 0.0, 0, 
                                0, 0.0, 0, 0.0, 0, 0,
                                0.0, 0, 0, 0.0, 0, 0, 0, 
-                               '', '', 0, 0, '{work_site}', '{optimisation}')"""
-    unit_cost_price = 0.0
-    dl_cmup = 'NULL'
+                               '', '', 0, 0, '{work_site}', '')"""
+    try:
+        connex.execute(sql_docentete)
+        print("SUCCESS docentete!!")
+    except Exception as e:
+        print('Error occurred on the execution of the sql docentete, the detail is ', e)
+    df_docligne = process_docligne_df(df_export=devis_from_export)
+    set_articles_concerned = {Services.prepare_df_articles(connexion=connexion)[0][str(art_design).strip()] for art_design in df_docligne['Désignation']}
+    dict_art_ref = Services.get_dict_art_ref_gamme(connexion=connexion, include_article=set_articles_concerned)
+    for i, row in df_docligne.iterrows():
 
-    sql_docligne = """INSERT INTO [dbo].[F_DOCLIGNE] ([DO_Domaine],[DO_Type],[CT_Num],[DO_Piece],[DL_PieceBC],[DL_PieceBL],[DO_Date],
-                       [DL_DateBC],[DL_DateBL],[DL_Ligne],[DO_Ref],[DL_TNomencl],[DL_TRemPied],[DL_TRemExep],[AR_Ref],[DL_Design],
-                       [DL_Qte],[DL_QteBC],[DL_QteBL],[DL_PoidsNet],[DL_PoidsBrut],[DL_Remise01REM_Valeur],[DL_Remise01REM_Type],
-                       [DL_Remise02REM_Valeur],[DL_Remise02REM_Type],[DL_Remise03REM_Valeur],[DL_Remise03REM_Type],[DL_PrixUnitaire],
-                       [DL_PUBC],[DL_Taxe1],[DL_TypeTaux1],[DL_TypeTaxe1],[DL_Taxe2],[DL_TypeTaux2],[DL_TypeTaxe2],[CO_No],[AG_No1],
-                       [AG_No2],[DL_PrixRU],[DL_CMUP],[DL_MvtStock],[DT_No],[AF_RefFourniss],[EU_Enumere],[EU_Qte],[DL_TTC],[DE_No],
-                       [DL_NoRef],[DL_PUDevise],[DL_PUTTC],[DO_DateLivr],[CA_Num],[DL_Taxe3],[DL_TypeTaux3],[DL_TypeTaxe3],[DL_Frais],
-                       [DL_Valorise],[AR_RefCompose],[DL_NonLivre],[AC_RefClient],[DL_MontantHT],[DL_MontantTTC],[DL_FactPoids],[DL_Escompte],[DL_PiecePL],
-                       [DL_DatePL],[DL_QtePL],[DL_NoColis],[DL_NoLink],[DL_QteRessource],[DL_TypePL],[DL_DateAvancement]) 
-                       VALUES (0, 0, '{client_name}', '{do_piece}', '', '', '{date_document}', 
-                       '1900-01-01 00:00:00', '{date_document}', 10000, '{do_ref}', 0, 0, 0, '{mp_article}', '{Services.add_apostrophe(dict_AR_design[mp_article])}', 
-                       {qte}, {qte}, 0.0, 0.0, 0.0, 0.0, 1, 
-                       0.0, 0, 0.0, 0, {dl_unit_price}, 
-                       0.0, 20.0, 0, 0, 0.0, 0, 0, 0, {art_gamme_no},
-                       0, {unit_cost_price}, {dl_cmup}, 0, 0, '', '{art_eu_enumere}', {qte}, 0, {deposit},
-                       1, 0.0, {dl_pu_ttc}, '1900-01-01 00:00:00', '', 0.0, 0, 0, 0.0, 
-                       {1 if compose else 0}, {AR_ref_compose}, 0,'', {montant_ht}, 0.0, 0, 0, '', 
-                       '1900-01-01 00:00:00', {qte else 0.0}, '', 0, 0, 0, '1900-01-01 00:00:00')"""
+        unit_cost_price = 0.0
+        dl_cmup = 'NULL'
+        qte = row['Qté']
+        dict_AR_design, dict_AR_unite = Services.prepare_df_articles(connexion=connexion)
+        art_ref_pf = dict_AR_design[row['Désignation']]
+        art_eu_enumere = Services.find_eu_enumere(num_unite=dict_AR_unite[art_ref_pf])
+        dl_unit_price, dl_pu_ttc = row['P.U. TTC'], row['P.U. TTC']
+        art_gamme_no = Services.find_artgamme_no(
+                        dict_corresp_ref=dict_art_ref,
+                        color_gamme=row["Coloris"] if pd.isna(row["Coloris"]) else Services.auto_complete_gam(row["Coloris"]),
+                        art_ref=art_ref_pf
+                    )
+        sql_docligne = f"""INSERT INTO [dbo].[F_DOCLIGNE] ([DO_Domaine],[DO_Type],[CT_Num],[DO_Piece],[DL_PieceBC],[DL_PieceBL],[DO_Date],
+                           [DL_DateBC],[DL_DateBL],[DL_Ligne],[DO_Ref],[DL_TNomencl],[DL_TRemPied],[DL_TRemExep],[AR_Ref],[DL_Design],
+                           [DL_Qte],[DL_QteBC],[DL_QteBL],[DL_PoidsNet],[DL_PoidsBrut],[DL_Remise01REM_Valeur],[DL_Remise01REM_Type],
+                           [DL_Remise02REM_Valeur],[DL_Remise02REM_Type],[DL_Remise03REM_Valeur],[DL_Remise03REM_Type],[DL_PrixUnitaire],
+                           [DL_PUBC],[DL_Taxe1],[DL_TypeTaux1],[DL_TypeTaxe1],[DL_Taxe2],[DL_TypeTaux2],[DL_TypeTaxe2],[CO_No],[AG_No1],
+                           [AG_No2],[DL_PrixRU],[DL_CMUP],[DL_MvtStock],[DT_No],[AF_RefFourniss],[EU_Enumere],[EU_Qte],[DL_TTC],[DE_No],
+                           [DL_NoRef],[DL_PUDevise],[DL_PUTTC],[DO_DateLivr],[CA_Num],[DL_Taxe3],[DL_TypeTaux3],[DL_TypeTaxe3],[DL_Frais],
+                           [DL_Valorise],[AR_RefCompose],[DL_NonLivre],[AC_RefClient],[DL_MontantHT],[DL_MontantTTC],[DL_FactPoids],[DL_Escompte],[DL_PiecePL],
+                           [DL_DatePL],[DL_QtePL],[DL_NoColis],[DL_NoLink],[DL_QteRessource],[DL_TypePL],[DL_DateAvancement]) 
+                           VALUES (0, 0, '{client_name}', '{do_piece}', '', '', '{date_document}', 
+                           '1900-01-01 00:00:00', '{date_document}', 10000, '{do_ref}', 0, 0, 0, '{art_ref_pf}', '{row['Désignation']}', 
+                           {qte}, {qte}, 0.0, 0.0, 0.0, 0.0, 1, 
+                           0.0, 0, 0.0, 0, {dl_unit_price}, 
+                           0.0, 20.0, 0, 0, 0.0, 0, 0, 0, {art_gamme_no},
+                           0, {unit_cost_price}, {dl_cmup}, 0, 0, '', '{art_eu_enumere}', {qte}, 0, {deposit},
+                           1, 0.0, {dl_pu_ttc}, '1900-01-01 00:00:00', '', 0.0, 0, 0, 0.0, 
+                           {1 if compose else 0}, {AR_ref_compose}, 0,'', {montant_ht}, 0.0, 0, 0, '', 
+                           '1900-01-01 00:00:00', {qte else 0.0}, '', 0, 0, 0, '1900-01-01 00:00:00')"""
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
