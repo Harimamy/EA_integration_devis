@@ -166,3 +166,5 @@ class Services:
             )
         return dict_unite[num_unite]
 
+    # you should use this function for testing if the article is compose or not
+

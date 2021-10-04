@@ -616,6 +616,7 @@ if __name__ == '__main__':
         print("SUCCESS docentete!!")
     except Exception as e:
         print('Error occurred on the execution of the sql docentete, the detail is ', e)
+
     df_docligne = process_docligne_df(df_export=devis_from_export)
     set_articles_concerned = {Services.prepare_df_articles(connexion=connexion)[0][str(art_design).strip()] for art_design in df_docligne['Désignation']}
     dict_art_ref = Services.get_dict_art_ref_gamme(connexion=connexion, include_article=set_articles_concerned)
@@ -628,11 +629,14 @@ if __name__ == '__main__':
         art_ref_pf = dict_AR_design[row['Désignation']]
         art_eu_enumere = Services.find_eu_enumere(num_unite=dict_AR_unite[art_ref_pf])
         dl_unit_price, dl_pu_ttc = row['P.U. TTC'], row['P.U. TTC']
+        montant_ht = dl_unit_price * qte
         art_gamme_no = Services.find_artgamme_no(
                         dict_corresp_ref=dict_art_ref,
                         color_gamme=row["Coloris"] if pd.isna(row["Coloris"]) else Services.auto_complete_gam(row["Coloris"]),
                         art_ref=art_ref_pf
                     )
+        # should verify the DL_Valorise because, this part 1 if compose and 0 if not
+        # the another is for DL_PUTTC
         sql_docligne = f"""INSERT INTO [dbo].[F_DOCLIGNE] ([DO_Domaine],[DO_Type],[CT_Num],[DO_Piece],[DL_PieceBC],[DL_PieceBL],[DO_Date],
                            [DL_DateBC],[DL_DateBL],[DL_Ligne],[DO_Ref],[DL_TNomencl],[DL_TRemPied],[DL_TRemExep],[AR_Ref],[DL_Design],
                            [DL_Qte],[DL_QteBC],[DL_QteBL],[DL_PoidsNet],[DL_PoidsBrut],[DL_Remise01REM_Valeur],[DL_Remise01REM_Type],
@@ -646,9 +650,17 @@ if __name__ == '__main__':
                            '1900-01-01 00:00:00', '{date_document}', 10000, '{do_ref}', 0, 0, 0, '{art_ref_pf}', '{row['Désignation']}', 
                            {qte}, {qte}, 0.0, 0.0, 0.0, 0.0, 1, 
                            0.0, 0, 0.0, 0, {dl_unit_price}, 
-                           0.0, 20.0, 0, 0, 0.0, 0, 0, 0, {art_gamme_no},
+                           0.0, 20.0, 0, 0, 0.0, 0, 0, 1, {art_gamme_no},
                            0, {unit_cost_price}, {dl_cmup}, 0, 0, '', '{art_eu_enumere}', {qte}, 0, {deposit},
                            1, 0.0, {dl_pu_ttc}, '1900-01-01 00:00:00', '', 0.0, 0, 0, 0.0, 
-                           {1 if compose else 0}, {AR_ref_compose}, 0,'', {montant_ht}, 0.0, 0, 0, '', 
-                           '1900-01-01 00:00:00', {qte else 0.0}, '', 0, 0, 0, '1900-01-01 00:00:00')"""
+                           1, NULL, 0,'', {montant_ht}, 0.0, 0, 0, '', 
+                           '1900-01-01 00:00:00', 0.0, '', 0, 0, 0, '1900-01-01 00:00:00')"""
+
+        # executing the docligne in progress
+        try:
+            connex.execute(sql_docligne)
+            print("SUCCESS DOCLIGNE")
+        except Exception as e:
+            print("an error occurred on sql docligne executed!")
+        print("DEVIS importé SUCCES!!...")
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
