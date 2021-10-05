@@ -129,3 +129,6 @@ dmypy.json
 .pyre/
 
 .idea/
+
+# specific file
+/services/connect_hfsql.py
