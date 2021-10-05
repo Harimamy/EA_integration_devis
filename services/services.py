@@ -1,7 +1,17 @@
+from turtle import color
+
 import pandas as pd
 
 
 class Services:
+    @staticmethod
+    def read_sql_speed_up(query, db_engine):
+        with db_engine.connect() as conn:
+            result = conn.execute(query)
+            df = pd.DataFrame(result.fetchall())
+            df.columns = result.keys()
+        return df
+
     @staticmethod
     def add_apostrophe(item):
         if "'" in item:
@@ -17,7 +27,7 @@ class Services:
 
     @staticmethod
     def prepare_df_articles(connexion):
-        df_article = Services.read_sql_speed_up(query='''SELECT * FROM [dbo].[F_ARTICLE]''', db_engine=connexion)
+        df_article = pd.read_sql_query(sql='''SELECT * FROM [dbo].[F_ARTICLE]''', con=connexion)
         dict_design_article = {row['AR_Design']: str(row['AR_Ref']) for i, row in df_article.iterrows()}
         dict_article_unite = {str(row['AR_Ref']): row['AR_UniteVen'] for i, row in df_article.iterrows()}
         return dict_design_article, dict_article_unite
@@ -29,7 +39,9 @@ class Services:
         if any((art_ref not in dict_corresp_ref, pd.isna(color_gamme))):
             return '0'
         for i in dict_corresp_ref[art_ref]:
-            if color_gamme in i:
+            print(i)
+            # here is some add into the artgamme concordances (lower, upper, capitalize,...)
+            if any((color_gamme in i, color_gamme.upper() in i, color_gamme.lower() in i, color_gamme.capitalize() in i)):
                 return i[0]
 
 
@@ -61,6 +73,7 @@ class Services:
         # here is about the association of color gamme correction
     @staticmethod
     def auto_complete_gam(color):
+        color_treat = color.split(maxsplit=1)[1]
         dict_associate_color = {
             'Bichromate': 'Bichromate',
             'Brute': 'Brut',
@@ -78,7 +91,7 @@ class Services:
             'Inox': 'Inox',
             'Zingue': 'Zingue'
         }
-        return dict_associate_color[str(color).strip().capitalize()]
+        return dict_associate_color[color_treat.strip().capitalize()]
 
     # this is used only for the "matiere premiere" in french version of variable
     @staticmethod

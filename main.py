@@ -100,6 +100,7 @@ def process_docligne_df(df_export):
                     df_docligne.columns = new_header
                     last_row = Services.cut_df_end(df_docligne)
                     df_docligne = df_docligne.iloc[:last_row, :][[col for col in df_docligne.columns if pd.notna(col)]]
+                    df_docligne = df_docligne.dropna()
                     print(df_docligne)
     #                     dict_df_docligne[i] = df_docligne
             except Exception as e:
@@ -579,11 +580,13 @@ if __name__ == '__main__':
     devis_from_export = pd.read_excel(path, sheet_name=pd.ExcelFile(path).sheet_names[0], header=None)
     pass
     dict_docentete = process_docentete_df(df_export=devis_from_export)
+    connexion = connect_with_pymssql(server='RAVALOHERY-PC', database='ALU_SQL')
     do_piece, date_document, do_ref, deposit = dict_docentete['do_piece'], dict_docentete['do_date'], dict_docentete['do_ref'], 1
-    client_name = Services.find_code_client(dict_docentete['client_name'])
+    # client_code = dict_docentete['client_name']
+    client_code = 'MOURTAZA'
+    client_name = Services.find_code_client(client_code, connexion=connexion)
     date_hour = date_hour = "{}{:02d}{:02d}{:02d}".format("000", time_now.hour, time_now.minute, time_now.second)
     work_site = 'test_chantier'
-    connexion = connect_with_pymssql(server='RAVALOHERY-PC', database='ALU_SQL')
     try:
         connex = connexion.connect()
     except Exception as e:
@@ -600,7 +603,7 @@ if __name__ == '__main__':
                         [DO_TypeFranco],  [DO_ValFranco],  [DO_TypeLigneFranco],  [DO_Taxe1],  [DO_TypeTaux1],  [DO_TypeTaxe1],  
                         [DO_Taxe2],  [DO_TypeTaux2],  [DO_TypeTaxe2],  [DO_Taxe3],  [DO_TypeTaux3],  [DO_TypeTaxe3],  [DO_MajCpta],  
                         [DO_Motif],  [DO_Contact],  [DO_FactureElec],  [DO_TypeTransac],  [Chantier],  [Optimisation])
-                        VALUES(0, 0, '{do_piece}', '{date_document}', '{do_ref}', '{client_name}', 
+                        VALUES(0, 0, '{do_piece}', '{date_document}', '{do_ref[-17:]}', '{client_name}', 
                                0, 1, 0, 0.0, {deposit}, 0, '{client_name}', 1, 
                                1, 0, 0.0, 0, 0, '', '', 
                                '', '', '', 0, '1900-01-01 00:00:00', 1, 1, 
@@ -617,19 +620,21 @@ if __name__ == '__main__':
     except Exception as e:
         print('Error occurred on the execution of the sql docentete, the detail is ', e)
 
+    dict_AR_design, dict_AR_unite = Services.prepare_df_articles(connexion=connexion)
     df_docligne = process_docligne_df(df_export=devis_from_export)
-    set_articles_concerned = {Services.prepare_df_articles(connexion=connexion)[0][str(art_design).strip()] for art_design in df_docligne['Désignation']}
+    print(df_docligne.columns)
+    set_articles_concerned = {dict_AR_design[str(art_design).strip()] for art_design in df_docligne['Désignation']}
     dict_art_ref = Services.get_dict_art_ref_gamme(connexion=connexion, include_article=set_articles_concerned)
     for i, row in df_docligne.iterrows():
 
         unit_cost_price = 0.0
         dl_cmup = 'NULL'
         qte = row['Qté']
-        dict_AR_design, dict_AR_unite = Services.prepare_df_articles(connexion=connexion)
         art_ref_pf = dict_AR_design[row['Désignation']]
         art_eu_enumere = Services.find_eu_enumere(num_unite=dict_AR_unite[art_ref_pf])
         dl_unit_price, dl_pu_ttc = row['P.U. TTC'], row['P.U. TTC']
         montant_ht = dl_unit_price * qte
+        width, height = row['L'], row['H']
         art_gamme_no = Services.find_artgamme_no(
                         dict_corresp_ref=dict_art_ref,
                         color_gamme=row["Coloris"] if pd.isna(row["Coloris"]) else Services.auto_complete_gam(row["Coloris"]),
@@ -645,22 +650,24 @@ if __name__ == '__main__':
                            [AG_No2],[DL_PrixRU],[DL_CMUP],[DL_MvtStock],[DT_No],[AF_RefFourniss],[EU_Enumere],[EU_Qte],[DL_TTC],[DE_No],
                            [DL_NoRef],[DL_PUDevise],[DL_PUTTC],[DO_DateLivr],[CA_Num],[DL_Taxe3],[DL_TypeTaux3],[DL_TypeTaxe3],[DL_Frais],
                            [DL_Valorise],[AR_RefCompose],[DL_NonLivre],[AC_RefClient],[DL_MontantHT],[DL_MontantTTC],[DL_FactPoids],[DL_Escompte],[DL_PiecePL],
-                           [DL_DatePL],[DL_QtePL],[DL_NoColis],[DL_NoLink],[DL_QteRessource],[DL_TypePL],[DL_DateAvancement]) 
+                           [DL_DatePL],[DL_QtePL],[DL_NoColis],[DL_NoLink],[DL_QteRessource],[DL_TypePL],[DL_DateAvancement],[Largeur],[Hauteur]) 
                            VALUES (0, 0, '{client_name}', '{do_piece}', '', '', '{date_document}', 
-                           '1900-01-01 00:00:00', '{date_document}', 10000, '{do_ref}', 0, 0, 0, '{art_ref_pf}', '{row['Désignation']}', 
+                           '1900-01-01 00:00:00', '{date_document}', 10000, '{do_ref[-17:]}', 0, 0, 0, '{art_ref_pf}', '{row['Désignation']}', 
                            {qte}, {qte}, 0.0, 0.0, 0.0, 0.0, 1, 
                            0.0, 0, 0.0, 0, {dl_unit_price}, 
                            0.0, 20.0, 0, 0, 0.0, 0, 0, 1, {art_gamme_no},
                            0, {unit_cost_price}, {dl_cmup}, 0, 0, '', '{art_eu_enumere}', {qte}, 0, {deposit},
                            1, 0.0, {dl_pu_ttc}, '1900-01-01 00:00:00', '', 0.0, 0, 0, 0.0, 
                            1, NULL, 0,'', {montant_ht}, 0.0, 0, 0, '', 
-                           '1900-01-01 00:00:00', 0.0, '', 0, 0, 0, '1900-01-01 00:00:00')"""
+                           '1900-01-01 00:00:00', 0.0, '', 0, 0, 0, '1900-01-01 00:00:00', {width}, {height})"""
 
         # executing the docligne in progress
         try:
+            # don't like this line
             connex.execute(sql_docligne)
             print("SUCCESS DOCLIGNE")
         except Exception as e:
-            print("an error occurred on sql docligne executed!")
-        print("DEVIS importé SUCCES!!...")
+            print("an error occurred on sql docligne executed!", e)
+            raise
+    print("DEVIS importé SUCCES!!...")
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
