@@ -1,3 +1,4 @@
+import ctypes
 from turtle import color
 
 import pandas as pd
@@ -44,7 +45,6 @@ class Services:
             if any((color_gamme in i, color_gamme.upper() in i, color_gamme.lower() in i, color_gamme.capitalize() in i)):
                 return i[0]
 
-
     @staticmethod
     def find_code_client(client_name, connexion):
         df_client = pd.read_sql_query(r'SELECT * FROM [dbo].[F_COMPTET] WHERE [CT_Type] = 0', con=connexion)
@@ -54,7 +54,6 @@ class Services:
         #     # regex
         #     pass
         return dict_client[client_name]
-
 
     @staticmethod
     def get_dict_art_ref_gamme(connexion, include_article):
@@ -70,7 +69,7 @@ class Services:
         }
         return dict_art_ref
 
-        # here is about the association of color gamme correction
+    # here is about the association of color gamme correction
     @staticmethod
     def auto_complete_gam(color):
         color_treat = color.split(maxsplit=1)[1]
@@ -178,6 +177,10 @@ class Services:
                 style=0
             )
         return dict_unite[num_unite]
+
+    @staticmethod
+    def show_message_box(title, text, style):
+        return ctypes.windll.user32.MessageBoxW(0, text, title, style)
 
     # you should use this function for testing if the article is compose or not
 

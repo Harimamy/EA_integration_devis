@@ -1,11 +1,13 @@
+import logging
 import math
 import os
 from datetime import datetime
 
 import pandas as pd
 
+from services.cipher_from_AES import AESCipher
 from services.services import Services
-from services.connexion_to_sql_server import connect_with_pymssql
+from services.connexion_to_sql_server import connect_with_pymssql, connect_with_pymssql_login
 
 
 def update_progress_label(progressbar, art_ref, check_last=None):
@@ -578,10 +580,42 @@ if __name__ == '__main__':
     time_now = datetime.now()
     path = r'''D:\sage donnees\ALU\Devis 1\base_DEVIS.xlsx'''
     devis_from_export = pd.read_excel(path, sheet_name=pd.ExcelFile(path).sheet_names[0], header=None)
-    pass
     dict_docentete = process_docentete_df(df_export=devis_from_export)
+    try:
+        class_aes = AESCipher('7ql9zA1bqqSnoYnt4zw3HppY')
+    except Exception as e:
+        Services.show_message_box("Erreur d'instance sur l'encryptage AES sur le mot de passe et utilisateur de la base Gestion Commerciale!")
+        print("Erreur d'instance sur l'encryptage AES...", e)
+        logging.ERROR("Erreur d'instance sur l'encryptage AES...")
+        raise SystemExit()
+        sys.exit()
+    if os.path.exists(r'C:\Integration SAGE\server.ini'):
+        with open(r'C:\Integration SAGE\server.ini', 'r') as file_connexion:
+            list_info_connex = [item.strip() for item in file_connexion.readlines()]
+    else:
+        Services.show_message_box(
+            title='Integration SAGE',
+            text="Le fichier contenant les informations de connexion n'existe pas! Merci de contacter l'administrateur",
+            style=0
+        )
+        raise SystemExit()
+        sys.exit()
+    database_name = list_info_connex[1]
+    # connexion = connect_with_pymssql_login(
+    #     server=list_info_connex[0],
+    #     database=database_name,
+    #     username=class_aes.decrypt(list_info_connex[2]),
+    #     password=class_aes.decrypt(list_info_connex[3])
+    # )
+
     connexion = connect_with_pymssql(server='RAVALOHERY-PC', database='ALU_SQL')
     do_piece, date_document, do_ref, deposit = dict_docentete['do_piece'], dict_docentete['do_date'], dict_docentete['do_ref'], 1
+    logging.basicConfig(
+        filename=r'''C:\Integration SAGE\DEVIS\Log\console_{}.log'''.format(do_piece),
+        level=logging.DEBUG,
+        format='%(asctime)s -- %(name)s -- %(levelname)s -- %(message)s'
+    )
+
     # client_code = dict_docentete['client_name']
     client_code = 'MOURTAZA'
     client_name = Services.find_code_client(client_code, connexion=connexion)
@@ -622,52 +656,130 @@ if __name__ == '__main__':
 
     dict_AR_design, dict_AR_unite = Services.prepare_df_articles(connexion=connexion)
     df_docligne = process_docligne_df(df_export=devis_from_export)
+
+    # Here is to add the art_ref for each PF
+    df_docligne['Référence'] = [dict_AR_design[design] for design in df_docligne['Désignation']]
     print(df_docligne.columns)
-    set_articles_concerned = {dict_AR_design[str(art_design).strip()] for art_design in df_docligne['Désignation']}
-    dict_art_ref = Services.get_dict_art_ref_gamme(connexion=connexion, include_article=set_articles_concerned)
-    for i, row in df_docligne.iterrows():
+    try:
+        set_articles_concerned = {dict_AR_design[str(art_design).strip()] for art_design in df_docligne['Désignation']}
+        dict_art_ref = Services.get_dict_art_ref_gamme(connexion=connexion, include_article=set_articles_concerned)
+    except Exception as ex:
+        print("An exception catched here as ", ex)
 
-        unit_cost_price = 0.0
-        dl_cmup = 'NULL'
-        qte = row['Qté']
-        art_ref_pf = dict_AR_design[row['Désignation']]
-        art_eu_enumere = Services.find_eu_enumere(num_unite=dict_AR_unite[art_ref_pf])
-        dl_unit_price, dl_pu_ttc = row['P.U. TTC'], row['P.U. TTC']
-        montant_ht = dl_unit_price * qte
-        width, height = row['L'], row['H']
-        art_gamme_no = Services.find_artgamme_no(
-                        dict_corresp_ref=dict_art_ref,
-                        color_gamme=row["Coloris"] if pd.isna(row["Coloris"]) else Services.auto_complete_gam(row["Coloris"]),
-                        art_ref=art_ref_pf
-                    )
-        # should verify the DL_Valorise because, this part 1 if compose and 0 if not
-        # the another is for DL_PUTTC
-        sql_docligne = f"""INSERT INTO [dbo].[F_DOCLIGNE] ([DO_Domaine],[DO_Type],[CT_Num],[DO_Piece],[DL_PieceBC],[DL_PieceBL],[DO_Date],
-                           [DL_DateBC],[DL_DateBL],[DL_Ligne],[DO_Ref],[DL_TNomencl],[DL_TRemPied],[DL_TRemExep],[AR_Ref],[DL_Design],
-                           [DL_Qte],[DL_QteBC],[DL_QteBL],[DL_PoidsNet],[DL_PoidsBrut],[DL_Remise01REM_Valeur],[DL_Remise01REM_Type],
-                           [DL_Remise02REM_Valeur],[DL_Remise02REM_Type],[DL_Remise03REM_Valeur],[DL_Remise03REM_Type],[DL_PrixUnitaire],
-                           [DL_PUBC],[DL_Taxe1],[DL_TypeTaux1],[DL_TypeTaxe1],[DL_Taxe2],[DL_TypeTaux2],[DL_TypeTaxe2],[CO_No],[AG_No1],
-                           [AG_No2],[DL_PrixRU],[DL_CMUP],[DL_MvtStock],[DT_No],[AF_RefFourniss],[EU_Enumere],[EU_Qte],[DL_TTC],[DE_No],
-                           [DL_NoRef],[DL_PUDevise],[DL_PUTTC],[DO_DateLivr],[CA_Num],[DL_Taxe3],[DL_TypeTaux3],[DL_TypeTaxe3],[DL_Frais],
-                           [DL_Valorise],[AR_RefCompose],[DL_NonLivre],[AC_RefClient],[DL_MontantHT],[DL_MontantTTC],[DL_FactPoids],[DL_Escompte],[DL_PiecePL],
-                           [DL_DatePL],[DL_QtePL],[DL_NoColis],[DL_NoLink],[DL_QteRessource],[DL_TypePL],[DL_DateAvancement],[Largeur],[Hauteur]) 
-                           VALUES (0, 0, '{client_name}', '{do_piece}', '', '', '{date_document}', 
-                           '1900-01-01 00:00:00', '{date_document}', 10000, '{do_ref[-17:]}', 0, 0, 0, '{art_ref_pf}', '{row['Désignation']}', 
-                           {qte}, {qte}, 0.0, 0.0, 0.0, 0.0, 1, 
-                           0.0, 0, 0.0, 0, {dl_unit_price}, 
-                           0.0, 20.0, 0, 0, 0.0, 0, 0, 1, {art_gamme_no},
-                           0, {unit_cost_price}, {dl_cmup}, 0, 0, '', '{art_eu_enumere}', {qte}, 0, {deposit},
-                           1, 0.0, {dl_pu_ttc}, '1900-01-01 00:00:00', '', 0.0, 0, 0, 0.0, 
-                           1, NULL, 0,'', {montant_ht}, 0.0, 0, 0, '', 
-                           '1900-01-01 00:00:00', 0.0, '', 0, 0, 0, '1900-01-01 00:00:00', {width}, {height})"""
+    # STOCK control
+    df_verification_stock = pd.read_sql_query(
+        sql=f'''SELECT [AR_Ref],[AS_QteSto] FROM [{database_name}].[dbo].[F_ARTSTOCK] 
+                    WHERE [AS_QteSto] >= 0 and [DE_No] = {deposit} and [AR_Ref] IN {str(tuple(set_articles_concerned))}''',
+        con=connexion
+    )
+    df_verification_gamstock = pd.read_sql_query(
+        sql=f'''SELECT [AR_Ref],[AG_No1],[GS_QteSto] FROM [{database_name}].[dbo].[F_GAMSTOCK]
+                   WHERE [DE_No] = {deposit} and [AR_Ref] IN {str(tuple(set_articles_concerned))}''',
+        con=connexion
+    )
 
-        # executing the docligne in progress
+    dict_stock = {str(row['AR_Ref']): row['AS_QteSto'] for i, row in df_verification_stock.iterrows()}
+    # getting each gamme for each qte in all article (PF)
+    dict_gamstock = {
+        str(row['AR_Ref']): {row1['AG_No1']: row1['GS_QteSto']
+                             for index, row1 in df_verification_gamstock.loc[df_verification_gamstock['AR_Ref'] == row['AR_Ref']].iterrows()}
+        for i, row in df_verification_gamstock.iterrows()
+    }
+
+    dict_docligne_qte = {str(row["Référence"]): float(row["Qté"]) for i, row in df_docligne.iterrows() if pd.notna(row["Référence"])}
+    compare = lambda x, y: x > y
+    if set(dict_docligne_qte) == set(dict_stock):
+        print("Vérification des articles en stock disponible... Ok")
+        Services.show_messagebox_auto_close(
+            wait_in_milli_sec=4000,
+            title_name="Integration SAGE",
+            message="Vérification des articles en stock disponible..."
+        )
+    else:
+        print("Voici la liste des articles qui ne sont pas disponible en stock, vérifier l'état de leurs stocks svp!\n",
+              set(dict_docligne_qte) - set(dict_stock))
+        Services.show_message_box(
+            title="Integration SAGE",
+            text="Articles non disponible en stock, vérifier l'état des stocks svp!\n {}".format(set(dict_docligne_qte) - set(dict_stock)),
+            style=0
+        )
+        logging.warning('Warning error artilce(s) doesnt exist or lack of stock: {}'.format(set(dict_docligne_qte) - set(dict_stock)))
+        raise SystemExit()
+        sys.exit()
+
+
+    # here is the comparison for each article from F_ARTSTOCK
+    if all([compare(x=dict_stock[art_ref], y=dict_docligne_qte[art_ref]) for art_ref in set_articles_concerned]):
+        # and after that here is the comparison for each article on gamme from F_GAMSTOCK
+        df_docligne['Référence'] = [str(article).strip() for article in df_docligne['Référence']]
+        set_articles_concerned = {Services.associate_articles_proges_sage(str(article).strip()) for article in df_docligne['Référence']}
+        dict_art_ref = Services.get_dict_art_ref_gamme(connexion=connexion, include_article=set_articles_concerned)
+        dict_art_ref_gam = {ar_ref['Référence']: Services.auto_complete_gam(ar_ref['Coloris'])
+                            for index, ar_ref in df_docligne.iterrows() if pd.notna(ar_ref['Coloris'])}
         try:
-            # don't like this line
-            connex.execute(sql_docligne)
-            print("SUCCESS DOCLIGNE")
-        except Exception as e:
-            print("an error occurred on sql docligne executed!", e)
-            raise
+            if all([
+                compare(
+                    x=dict_gamstock[art_ref][int(Services.find_artgamme_no(
+                        dict_corresp_ref=dict_art_ref,
+                        color_gamme=dict_art_ref_gam[art_ref],
+                        art_ref=str(art_ref)
+                    ))],
+                    y=dict_docligne_qte[art_ref]
+                ) for art_ref in dict_gamstock
+            ]):
+                Services.show_messagebox_auto_close(
+                    wait_in_milli_sec=3000,
+                    title_name="Integration DEVIS",
+                    message="Importation en cours..."
+                )
+
+        # the EXCEPT of exception should be here
+
+                for i, row in df_docligne.iterrows():
+                    unit_cost_price = 0.0
+                    dl_cmup = 'NULL'
+                    qte = row['Qté']
+                    art_ref_pf = dict_AR_design[row['Désignation']]
+                    art_eu_enumere = Services.find_eu_enumere(num_unite=dict_AR_unite[art_ref_pf])
+                    dl_unit_price, dl_pu_ttc = row['P.U. TTC'], row['P.U. TTC']
+                    montant_ht = dl_unit_price * qte
+                    width, height = row['L'], row['H']
+                    art_gamme_no = Services.find_artgamme_no(
+                                    dict_corresp_ref=dict_art_ref,
+                                    color_gamme=row["Coloris"] if pd.isna(row["Coloris"]) else Services.auto_complete_gam(row["Coloris"]),
+                                    art_ref=art_ref_pf
+                                )
+                    # should verify the DL_Valorise because, this part 1 if compose and 0 if not
+                    # the another is for DL_PUTTC
+                    sql_docligne = f"""INSERT INTO [dbo].[F_DOCLIGNE] ([DO_Domaine],[DO_Type],[CT_Num],[DO_Piece],[DL_PieceBC],[DL_PieceBL],[DO_Date],
+                                       [DL_DateBC],[DL_DateBL],[DL_Ligne],[DO_Ref],[DL_TNomencl],[DL_TRemPied],[DL_TRemExep],[AR_Ref],[DL_Design],
+                                       [DL_Qte],[DL_QteBC],[DL_QteBL],[DL_PoidsNet],[DL_PoidsBrut],[DL_Remise01REM_Valeur],[DL_Remise01REM_Type],
+                                       [DL_Remise02REM_Valeur],[DL_Remise02REM_Type],[DL_Remise03REM_Valeur],[DL_Remise03REM_Type],[DL_PrixUnitaire],
+                                       [DL_PUBC],[DL_Taxe1],[DL_TypeTaux1],[DL_TypeTaxe1],[DL_Taxe2],[DL_TypeTaux2],[DL_TypeTaxe2],[CO_No],[AG_No1],
+                                       [AG_No2],[DL_PrixRU],[DL_CMUP],[DL_MvtStock],[DT_No],[AF_RefFourniss],[EU_Enumere],[EU_Qte],[DL_TTC],[DE_No],
+                                       [DL_NoRef],[DL_PUDevise],[DL_PUTTC],[DO_DateLivr],[CA_Num],[DL_Taxe3],[DL_TypeTaux3],[DL_TypeTaxe3],[DL_Frais],
+                                       [DL_Valorise],[AR_RefCompose],[DL_NonLivre],[AC_RefClient],[DL_MontantHT],[DL_MontantTTC],[DL_FactPoids],[DL_Escompte],[DL_PiecePL],
+                                       [DL_DatePL],[DL_QtePL],[DL_NoColis],[DL_NoLink],[DL_QteRessource],[DL_TypePL],[DL_DateAvancement],[Largeur],[Hauteur]) 
+                                       VALUES (0, 0, '{client_name}', '{do_piece}', '', '', '{date_document}', 
+                                       '1900-01-01 00:00:00', '{date_document}', 10000, '{do_ref[-17:]}', 0, 0, 0, '{art_ref_pf}', '{row['Désignation']}', 
+                                       {qte}, {qte}, 0.0, 0.0, 0.0, 0.0, 1, 
+                                       0.0, 0, 0.0, 0, {dl_unit_price}, 
+                                       0.0, 20.0, 0, 0, 0.0, 0, 0, 1, {art_gamme_no},
+                                       0, {unit_cost_price}, {dl_cmup}, 0, 0, '', '{art_eu_enumere}', {qte}, 0, {deposit},
+                                       1, 0.0, {dl_pu_ttc}, '1900-01-01 00:00:00', '', 0.0, 0, 0, 0.0, 
+                                       1, NULL, 0,'', {montant_ht}, 0.0, 0, 0, '', 
+                                       '1900-01-01 00:00:00', 0.0, '', 0, 0, 0, '1900-01-01 00:00:00', {width}, {height})"""
+
+                    # executing the docligne in progress
+                    try:
+                        # don't like this line
+                        connex.execute(sql_docligne)
+                        print("SUCCESS DOCLIGNE")
+                    except Exception as e:
+                        print("an error occurred on sql docligne executed!", e)
+                        raise
+        except Exception as ex:
+            print("excpetion catched here as ", e)
+
     print("DEVIS importé SUCCES!!...")
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
