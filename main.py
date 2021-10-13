@@ -1,11 +1,13 @@
+import logging
 import math
 import os
 from datetime import datetime
 
 import pandas as pd
 
+from services.cipher_from_AES import AESCipher
 from services.services import Services
-from services.connexion_to_sql_server import connect_with_pymssql
+from services.connexion_to_sql_server import connect_with_pymssql, connect_with_pymssql_login
 
 
 def update_progress_label(progressbar, art_ref, check_last=None):
@@ -100,7 +102,7 @@ def process_docligne_df(df_export):
                     df_docligne.columns = new_header
                     last_row = Services.cut_df_end(df_docligne)
                     df_docligne = df_docligne.iloc[:last_row, :][[col for col in df_docligne.columns if pd.notna(col)]]
-                    df_docligne = df_docligne.dropna()
+                    df_docligne = df_docligne.dropna(how="all")
                     print(df_docligne)
     #                     dict_df_docligne[i] = df_docligne
             except Exception as e:
@@ -578,10 +580,43 @@ if __name__ == '__main__':
     time_now = datetime.now()
     path = r'''D:\sage donnees\ALU\Devis 1\base_DEVIS.xlsx'''
     devis_from_export = pd.read_excel(path, sheet_name=pd.ExcelFile(path).sheet_names[0], header=None)
-    pass
     dict_docentete = process_docentete_df(df_export=devis_from_export)
-    connexion = connect_with_pymssql(server='RAVALOHERY-PC', database='ALU_SQL')
     do_piece, date_document, do_ref, deposit = dict_docentete['do_piece'], dict_docentete['do_date'], dict_docentete['do_ref'], 1
+    logging.basicConfig(
+        filename=r'''C:\Integration SAGE\DEVIS\Log\console_{}.log'''.format(do_piece),
+        level=logging.DEBUG,
+        format='%(asctime)s -- %(name)s -- %(levelname)s -- %(message)s'
+    )
+
+    try:
+        class_aes = AESCipher('7ql9zA1bqqSnoYnt4zw3HppY')
+    except Exception as e:
+        Services.show_message_box("Erreur d'instance sur l'encryptage AES sur le mot de passe et utilisateur de la base Gestion Commerciale!")
+        print("Erreur d'instance sur l'encryptage AES...", e)
+        logging.ERROR("Erreur d'instance sur l'encryptage AES...")
+        raise SystemExit()
+        sys.exit()
+    if os.path.exists(r'C:\Integration SAGE\server.ini'):
+        with open(r'C:\Integration SAGE\server.ini', 'r') as file_connexion:
+            list_info_connex = [item.strip() for item in file_connexion.readlines()]
+    else:
+        Services.show_message_box(
+            title='Integration SAGE',
+            text="Le fichier contenant les informations de connexion n'existe pas! Merci de contacter l'administrateur",
+            style=0
+        )
+        raise SystemExit()
+        sys.exit()
+    database_name = list_info_connex[1]
+    # connexion = connect_with_pymssql_login(
+    #     server=list_info_connex[0],
+    #     database=database_name,
+    #     username=class_aes.decrypt(list_info_connex[2]),
+    #     password=class_aes.decrypt(list_info_connex[3])
+    # )
+
+    connexion = connect_with_pymssql(server='RAVALOHERY-PC', database='ALU_SQL')
+
     # client_code = dict_docentete['client_name']
     client_code = 'MOURTAZA'
     client_name = Services.find_code_client(client_code, connexion=connexion)
@@ -608,7 +643,7 @@ if __name__ == '__main__':
                                1, 0, 0.0, 0, 0, '', '', 
                                '', '', '', 0, '1900-01-01 00:00:00', 1, 1, 
                                1, 1, 11, 0, 0.0, 21, 1, 
-                               0, 0, '1900-01-01 00:00:00', '1900-01-01 00:00:00', '1900-01-01 00:00:00', '1900-01-01 00:00:00', 1,
+                               0, 0, '1900-01-01 00:00:00', '1900-01-01 00:00:00', '1900-01-01 00:00:00', '1900-01-01 00:00:00', 0,
                                '{date_hour}', 0, 0, 0, 0, '', 0, 
                                0, '', 0, 0, 0.0, 0, 
                                0, 0.0, 0, 0.0, 0, 0,
@@ -622,11 +657,17 @@ if __name__ == '__main__':
 
     dict_AR_design, dict_AR_unite = Services.prepare_df_articles(connexion=connexion)
     df_docligne = process_docligne_df(df_export=devis_from_export)
-    print(df_docligne.columns)
-    set_articles_concerned = {dict_AR_design[str(art_design).strip()] for art_design in df_docligne['Désignation']}
-    dict_art_ref = Services.get_dict_art_ref_gamme(connexion=connexion, include_article=set_articles_concerned)
-    for i, row in df_docligne.iterrows():
 
+    # Here is to add the art_ref for each PF
+    df_docligne['Référence'] = [dict_AR_design[design] for design in df_docligne['Désignation']]
+    print(df_docligne.columns)
+    try:
+        set_articles_concerned = {dict_AR_design[str(art_design).strip()] for art_design in df_docligne['Désignation']}
+        dict_art_ref = Services.get_dict_art_ref_gamme(connexion=connexion, include_article=set_articles_concerned)
+    except Exception as ex:
+        logging.ERROR('Exception catched on set article concerned and the dict art ref trying ', ex)
+
+    for i, row in df_docligne.iterrows():
         unit_cost_price = 0.0
         dl_cmup = 'NULL'
         qte = row['Qté']
@@ -668,6 +709,6 @@ if __name__ == '__main__':
             print("SUCCESS DOCLIGNE")
         except Exception as e:
             print("an error occurred on sql docligne executed!", e)
-            raise
+            logging.ERROR("An error occurred on the sql docligne execution! exception is ", e)
     print("DEVIS importé SUCCES!!...")
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
