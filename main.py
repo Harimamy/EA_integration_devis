@@ -659,31 +659,53 @@ if __name__ == '__main__':
     df_docligne = process_docligne_df(df_export=devis_from_export)
 
     # Here is to add the art_ref for each PF
-    df_docligne['Référence'] = [dict_AR_design[design] for design in df_docligne['Désignation']]
+    df_docligne['Référence'] = ''
+    for i, row in df_docligne.iterrows():
+        if all([pd.notna(row['Qté']), pd.notna(row['L']), pd.notna(row['H']), pd.notna(row['P.U. TTC']), pd.notna(row['P.T. TTC'])]):
+            print(row['Désignation'])
+            df_docligne.at[i, 'Référence'] = dict_AR_design[row['Désignation']]
+
+    # df_docligne['Référence'] = [dict_AR_design[design] for design in df_docligne['Désignation']]
     print(df_docligne.columns)
     try:
-        set_articles_concerned = {dict_AR_design[str(art_design).strip()] for art_design in df_docligne['Désignation']}
+        set_articles_concerned = {str(art_name).strip() for art_name in df_docligne['Référence'] if art_name != ''}
         dict_art_ref = Services.get_dict_art_ref_gamme(connexion=connexion, include_article=set_articles_concerned)
     except Exception as ex:
         logging.ERROR('Exception catched on set article concerned and the dict art ref trying ', ex)
 
+    sql_docligne, set_docligne = None, set()
     for i, row in df_docligne.iterrows():
-        unit_cost_price = 0.0
-        dl_cmup = 'NULL'
-        qte = row['Qté']
-        art_ref_pf = dict_AR_design[row['Désignation']]
-        art_eu_enumere = Services.find_eu_enumere(num_unite=dict_AR_unite[art_ref_pf])
-        dl_unit_price, dl_pu_ttc = row['P.U. TTC'], row['P.U. TTC']
-        montant_ht = dl_unit_price * qte
-        width, height = row['L'], row['H']
-        art_gamme_no = Services.find_artgamme_no(
-                        dict_corresp_ref=dict_art_ref,
-                        color_gamme=row["Coloris"] if pd.isna(row["Coloris"]) else Services.auto_complete_gam(row["Coloris"]),
-                        art_ref=art_ref_pf
-                    )
-        # should verify the DL_Valorise because, this part 1 if compose and 0 if not
-        # the another is for DL_PUTTC
-        sql_docligne = f"""INSERT INTO [dbo].[F_DOCLIGNE] ([DO_Domaine],[DO_Type],[CT_Num],[DO_Piece],[DL_PieceBC],[DL_PieceBL],[DO_Date],
+        fill_in1, fill_in2 = '', ''
+        if all([pd.isna(row['Qté']), pd.isna(row['L']), pd.isna(row['H']), pd.isna(row['P.U. TTC']), pd.isna(row['P.T. TTC'])]):
+            if row['Désignation'].__contains__('Bardage'):
+                fill_in1 = fill_in1 + " " + row['Désignation']
+            elif row['Désignation'].__contains__('ACP'):
+                fill_in1 = fill_in1 + " " + row['Désignation']
+            elif row['Désignation'].__contains__('Mélamine'):
+                fill_in1 = fill_in1 + " " + row['Désignation']
+            elif row['Désignation'].__contains__('vitrage'):
+                fill_in2 = fill_in2 + " " + row['Désignation']
+        else:
+            if sql_docligne:
+                set_docligne.add(sql_docligne)
+            unit_cost_price = 0.0
+            dl_cmup = 'NULL'
+            qte = row['Qté']
+            art_ref_pf = dict_AR_design[row['Désignation']]
+            art_eu_enumere = Services.find_eu_enumere(num_unite=dict_AR_unite[art_ref_pf])
+            dl_unit_price, dl_pu_ttc = row['P.U. TTC'], row['P.U. TTC']
+            montant_ht = dl_unit_price * qte
+            width, height = row['L'], row['H']
+            art_gamme_no = Services.find_artgamme_no(
+                dict_corresp_ref=dict_art_ref,
+                color_gamme=row["Coloris"] if pd.isna(row["Coloris"]) else Services.auto_complete_gam(row["Coloris"]),
+                art_ref=art_ref_pf
+            )
+            # query_var = "INSRT INTO {}".format(row['Désignation'])
+
+            # should verify the DL_Valorise because, this part 1 if compose and 0 if not
+            # the another is for DL_PUTTC
+            sql_docligne = f"""INSERT INTO [dbo].[F_DOCLIGNE] ([DO_Domaine],[DO_Type],[CT_Num],[DO_Piece],[DL_PieceBC],[DL_PieceBL],[DO_Date],
                            [DL_DateBC],[DL_DateBL],[DL_Ligne],[DO_Ref],[DL_TNomencl],[DL_TRemPied],[DL_TRemExep],[AR_Ref],[DL_Design],
                            [DL_Qte],[DL_QteBC],[DL_QteBL],[DL_PoidsNet],[DL_PoidsBrut],[DL_Remise01REM_Valeur],[DL_Remise01REM_Type],
                            [DL_Remise02REM_Valeur],[DL_Remise02REM_Type],[DL_Remise03REM_Valeur],[DL_Remise03REM_Type],[DL_PrixUnitaire],
@@ -691,7 +713,8 @@ if __name__ == '__main__':
                            [AG_No2],[DL_PrixRU],[DL_CMUP],[DL_MvtStock],[DT_No],[AF_RefFourniss],[EU_Enumere],[EU_Qte],[DL_TTC],[DE_No],
                            [DL_NoRef],[DL_PUDevise],[DL_PUTTC],[DO_DateLivr],[CA_Num],[DL_Taxe3],[DL_TypeTaux3],[DL_TypeTaxe3],[DL_Frais],
                            [DL_Valorise],[AR_RefCompose],[DL_NonLivre],[AC_RefClient],[DL_MontantHT],[DL_MontantTTC],[DL_FactPoids],[DL_Escompte],[DL_PiecePL],
-                           [DL_DatePL],[DL_QtePL],[DL_NoColis],[DL_NoLink],[DL_QteRessource],[DL_TypePL],[DL_DateAvancement],[Largeur],[Hauteur]) 
+                           [DL_DatePL],[DL_QtePL],[DL_NoColis],[DL_NoLink],[DL_QteRessource],[DL_TypePL],[DL_DateAvancement],[Largeur],[Hauteur],
+                           [Remplissage_1],[Remplissage_2]) 
                            VALUES (0, 0, '{client_name}', '{do_piece}', '', '', '{date_document}', 
                            '1900-01-01 00:00:00', '{date_document}', 10000, '{do_ref[-17:]}', 0, 0, 0, '{art_ref_pf}', '{row['Désignation']}', 
                            {qte}, {qte}, 0.0, 0.0, 0.0, 0.0, 1, 
@@ -700,15 +723,18 @@ if __name__ == '__main__':
                            0, {unit_cost_price}, {dl_cmup}, 0, 0, '', '{art_eu_enumere}', {qte}, 0, {deposit},
                            1, 0.0, {dl_pu_ttc}, '1900-01-01 00:00:00', '', 0.0, 0, 0, 0.0, 
                            1, NULL, 0,'', {montant_ht}, 0.0, 0, 0, '', 
-                           '1900-01-01 00:00:00', 0.0, '', 0, 0, 0, '1900-01-01 00:00:00', {width}, {height})"""
+                           '1900-01-01 00:00:00', 0.0, '', 0, 0, 0, '1900-01-01 00:00:00', {width}, {height},
+                           {fill_in1}, {fill_in2})"""
 
         # executing the docligne in progress
-        try:
-            # don't like this line
-            connex.execute(sql_docligne)
-            print("SUCCESS DOCLIGNE")
-        except Exception as e:
-            print("an error occurred on sql docligne executed!", e)
-            logging.ERROR("An error occurred on the sql docligne execution! exception is ", e)
+    set_docligne.add(sql_docligne)
+    print(set_docligne)
+    try:
+        # don't like this line
+        # connex.execute(sql_docligne)
+        print("SUCCESS DOCLIGNE")
+    except Exception as e:
+        print("an error occurred on sql docligne executed!", e)
+        logging.ERROR("An error occurred on the sql docligne execution! exception is ", e)
     print("DEVIS importé SUCCES!!...")
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
