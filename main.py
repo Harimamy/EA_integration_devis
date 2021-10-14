@@ -601,7 +601,7 @@ if __name__ == '__main__':
             list_info_connex = [item.strip() for item in file_connexion.readlines()]
     else:
         Services.show_message_box(
-            title='Integration SAGE',
+            title='Integration DEVIS',
             text="Le fichier contenant les informations de connexion n'existe pas! Merci de contacter l'administrateur",
             style=0
         )
