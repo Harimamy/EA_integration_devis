@@ -654,6 +654,11 @@ if __name__ == '__main__':
         print("SUCCESS docentete!!")
     except Exception as e:
         print('Error occurred on the execution of the sql docentete, the detail is ', e)
+        logging.ERROR("please verify the document if exist on the devis document")
+        # Services.show_message_box(
+        #   title="Integration DEVIS",
+        #   text="Vérifier s'il vous plait si le document au même entete existe déjà dans SAGE! "
+        # )
 
     dict_AR_design, dict_AR_unite = Services.prepare_df_articles(connexion=connexion)
     df_docligne = process_docligne_df(df_export=devis_from_export)
@@ -674,8 +679,8 @@ if __name__ == '__main__':
         logging.ERROR('Exception catched on set article concerned and the dict art ref trying ', ex)
 
     sql_docligne, set_docligne = None, set()
+    fill_in1, fill_in2, designation = '', '', None
     for i, row in df_docligne.iterrows():
-        fill_in1, fill_in2 = '', ''
         if all([pd.isna(row['Qté']), pd.isna(row['L']), pd.isna(row['H']), pd.isna(row['P.U. TTC']), pd.isna(row['P.T. TTC'])]):
             if row['Désignation'].__contains__('Bardage'):
                 fill_in1 = fill_in1 + " " + row['Désignation']
@@ -685,16 +690,67 @@ if __name__ == '__main__':
                 fill_in1 = fill_in1 + " " + row['Désignation']
             elif row['Désignation'].__contains__('vitrage'):
                 fill_in2 = fill_in2 + " " + row['Désignation']
+
+            # here is the change of place for sql_docligne first test
+            sql_docligne = f"""INSERT INTO [dbo].[F_DOCLIGNE] ([DO_Domaine],[DO_Type],[CT_Num],[DO_Piece],[DL_PieceBC],[DL_PieceBL],[DO_Date],
+                               [DL_DateBC],[DL_DateBL],[DL_Ligne],[DO_Ref],[DL_TNomencl],[DL_TRemPied],[DL_TRemExep],[AR_Ref],[DL_Design],
+                               [DL_Qte],[DL_QteBC],[DL_QteBL],[DL_PoidsNet],[DL_PoidsBrut],[DL_Remise01REM_Valeur],[DL_Remise01REM_Type],
+                               [DL_Remise02REM_Valeur],[DL_Remise02REM_Type],[DL_Remise03REM_Valeur],[DL_Remise03REM_Type],[DL_PrixUnitaire],
+                               [DL_PUBC],[DL_Taxe1],[DL_TypeTaux1],[DL_TypeTaxe1],[DL_Taxe2],[DL_TypeTaux2],[DL_TypeTaxe2],[CO_No],[AG_No1],
+                               [AG_No2],[DL_PrixRU],[DL_CMUP],[DL_MvtStock],[DT_No],[AF_RefFourniss],[EU_Enumere],[EU_Qte],[DL_TTC],[DE_No],
+                               [DL_NoRef],[DL_PUDevise],[DL_PUTTC],[DO_DateLivr],[CA_Num],[DL_Taxe3],[DL_TypeTaux3],[DL_TypeTaxe3],[DL_Frais],
+                               [DL_Valorise],[AR_RefCompose],[DL_NonLivre],[AC_RefClient],[DL_MontantHT],[DL_MontantTTC],[DL_FactPoids],[DL_Escompte],[DL_PiecePL],
+                               [DL_DatePL],[DL_QtePL],[DL_NoColis],[DL_NoLink],[DL_QteRessource],[DL_TypePL],[DL_DateAvancement],[Largeur],[Hauteur],
+                               [Remplissage_1],[Remplissage_2])
+                               VALUES (0, 0, '{client_name}', '{do_piece}', '', '', '{date_document}',
+                               '1900-01-01 00:00:00', '{date_document}', 10000, '{do_ref[-17:]}', 0, 0, 0, '{art_ref_pf}', '{designation}',
+                               {qte}, {qte}, 0.0, 0.0, 0.0, 0.0, 1,
+                               0.0, 0, 0.0, 0, {dl_pu_ht},
+                               0.0, 20.0, 0, 0, 0.0, 0, 0, 1, {art_gamme_no},
+                               0, {unit_cost_price}, {dl_cmup}, 0, 0, '', '{art_eu_enumere}', {qte}, 1, {deposit},
+                               1, 0.0, {dl_pu_ttc}, '1900-01-01 00:00:00', '', 0.0, 0, 0, 0.0,
+                               1, NULL, 0,'', {montant_ht}, {montant_ttc}, 0, 0, '',
+                               '1900-01-01 00:00:00', 0.0, '', 0, 0, 0, '1900-01-01 00:00:00', {width}, {height},
+                               '{fill_in1.strip()}', '{fill_in2.strip()}')"""
+
+            # this docligne exclude all price HT that calculed automatically by sage on réajustement des cumuls
+            # sql_docligne = f"""INSERT INTO [dbo].[F_DOCLIGNE] ([DO_Domaine],[DO_Type],[CT_Num],[DO_Piece],[DL_PieceBC],[DL_PieceBL],[DO_Date],
+            #                    [DL_DateBC],[DL_DateBL],[DL_Ligne],[DO_Ref],[DL_TNomencl],[DL_TRemPied],[DL_TRemExep],[AR_Ref],[DL_Design],
+            #                    [DL_Qte],[DL_QteBC],[DL_QteBL],[DL_PoidsNet],[DL_PoidsBrut],[DL_Remise01REM_Valeur],[DL_Remise01REM_Type],
+            #                    [DL_Remise02REM_Valeur],[DL_Remise02REM_Type],[DL_Remise03REM_Valeur],[DL_Remise03REM_Type],
+            #                    [DL_PUBC],[DL_Taxe1],[DL_TypeTaux1],[DL_TypeTaxe1],[DL_Taxe2],[DL_TypeTaux2],[DL_TypeTaxe2],[CO_No],[AG_No1],
+            #                    [AG_No2],[DL_PrixRU],[DL_CMUP],[DL_MvtStock],[DT_No],[AF_RefFourniss],[EU_Enumere],[EU_Qte],[DL_TTC],[DE_No],
+            #                    [DL_NoRef],[DL_PUDevise],[DL_PUTTC],[DO_DateLivr],[CA_Num],[DL_Taxe3],[DL_TypeTaux3],[DL_TypeTaxe3],[DL_Frais],
+            #                    [DL_Valorise],[AR_RefCompose],[DL_NonLivre],[AC_RefClient],[DL_MontantTTC],[DL_FactPoids],[DL_Escompte],[DL_PiecePL],
+            #                    [DL_DatePL],[DL_QtePL],[DL_NoColis],[DL_NoLink],[DL_QteRessource],[DL_TypePL],[DL_DateAvancement],[Largeur],[Hauteur],
+            #                    [Remplissage_1],[Remplissage_2])
+            #                    VALUES (0, 0, '{client_name}', '{do_piece}', '', '', '{date_document}',
+            #                    '1900-01-01 00:00:00', '{date_document}', 10000, '{do_ref[-17:]}', 0, 0, 0, '{art_ref_pf}', '{designation}',
+            #                    {qte}, {qte}, 0.0, 0.0, 0.0, 0.0, 1,
+            #                    0.0, 0, 0.0, 0,
+            #                    0.0, 20.0, 0, 0, 0.0, 0, 0, 1, {art_gamme_no},
+            #                    0, {unit_cost_price}, {dl_cmup}, 0, 0, '', '{art_eu_enumere}', {qte}, 1, {deposit},
+            #                    1, 0.0, {dl_pu_ttc}, '1900-01-01 00:00:00', '', 0.0, 0, 0, 0.0,
+            #                    1, NULL, 0,'', {montant_ttc}, 0, 0, '',
+            #                    '1900-01-01 00:00:00', 0.0, '', 0, 0, 0, '1900-01-01 00:00:00', {width}, {height},
+            #                    '{fill_in1.strip()}', '{fill_in2.strip()}')"""
+
+
+
         else:
+            # the process read here for each PF on the top title
+            fill_in1, fill_in2 = '', ''
             if sql_docligne:
                 set_docligne.add(sql_docligne)
             unit_cost_price = 0.0
             dl_cmup = 'NULL'
-            qte = row['Qté']
+            qte, designation = row['Qté'], row['Désignation']
             art_ref_pf = dict_AR_design[row['Désignation']]
             art_eu_enumere = Services.find_eu_enumere(num_unite=dict_AR_unite[art_ref_pf])
-            dl_unit_price, dl_pu_ttc = row['P.U. TTC'], row['P.U. TTC']
-            montant_ht = dl_unit_price * qte
+            dl_pu_ttc = row['P.U. TTC']
+            dl_pu_ht = dl_pu_ttc / 1.20
+            montant_ht = dl_pu_ht * qte
+            montant_ttc = row['P.T. TTC']
             width, height = row['L'], row['H']
             art_gamme_no = Services.find_artgamme_no(
                 dict_corresp_ref=dict_art_ref,
@@ -705,36 +761,17 @@ if __name__ == '__main__':
 
             # should verify the DL_Valorise because, this part 1 if compose and 0 if not
             # the another is for DL_PUTTC
-            sql_docligne = f"""INSERT INTO [dbo].[F_DOCLIGNE] ([DO_Domaine],[DO_Type],[CT_Num],[DO_Piece],[DL_PieceBC],[DL_PieceBL],[DO_Date],
-                           [DL_DateBC],[DL_DateBL],[DL_Ligne],[DO_Ref],[DL_TNomencl],[DL_TRemPied],[DL_TRemExep],[AR_Ref],[DL_Design],
-                           [DL_Qte],[DL_QteBC],[DL_QteBL],[DL_PoidsNet],[DL_PoidsBrut],[DL_Remise01REM_Valeur],[DL_Remise01REM_Type],
-                           [DL_Remise02REM_Valeur],[DL_Remise02REM_Type],[DL_Remise03REM_Valeur],[DL_Remise03REM_Type],[DL_PrixUnitaire],
-                           [DL_PUBC],[DL_Taxe1],[DL_TypeTaux1],[DL_TypeTaxe1],[DL_Taxe2],[DL_TypeTaux2],[DL_TypeTaxe2],[CO_No],[AG_No1],
-                           [AG_No2],[DL_PrixRU],[DL_CMUP],[DL_MvtStock],[DT_No],[AF_RefFourniss],[EU_Enumere],[EU_Qte],[DL_TTC],[DE_No],
-                           [DL_NoRef],[DL_PUDevise],[DL_PUTTC],[DO_DateLivr],[CA_Num],[DL_Taxe3],[DL_TypeTaux3],[DL_TypeTaxe3],[DL_Frais],
-                           [DL_Valorise],[AR_RefCompose],[DL_NonLivre],[AC_RefClient],[DL_MontantHT],[DL_MontantTTC],[DL_FactPoids],[DL_Escompte],[DL_PiecePL],
-                           [DL_DatePL],[DL_QtePL],[DL_NoColis],[DL_NoLink],[DL_QteRessource],[DL_TypePL],[DL_DateAvancement],[Largeur],[Hauteur],
-                           [Remplissage_1],[Remplissage_2]) 
-                           VALUES (0, 0, '{client_name}', '{do_piece}', '', '', '{date_document}', 
-                           '1900-01-01 00:00:00', '{date_document}', 10000, '{do_ref[-17:]}', 0, 0, 0, '{art_ref_pf}', '{row['Désignation']}', 
-                           {qte}, {qte}, 0.0, 0.0, 0.0, 0.0, 1, 
-                           0.0, 0, 0.0, 0, {dl_unit_price}, 
-                           0.0, 20.0, 0, 0, 0.0, 0, 0, 1, {art_gamme_no},
-                           0, {unit_cost_price}, {dl_cmup}, 0, 0, '', '{art_eu_enumere}', {qte}, 0, {deposit},
-                           1, 0.0, {dl_pu_ttc}, '1900-01-01 00:00:00', '', 0.0, 0, 0, 0.0, 
-                           1, NULL, 0,'', {montant_ht}, 0.0, 0, 0, '', 
-                           '1900-01-01 00:00:00', 0.0, '', 0, 0, 0, '1900-01-01 00:00:00', {width}, {height},
-                           {fill_in1}, {fill_in2})"""
 
         # executing the docligne in progress
     set_docligne.add(sql_docligne)
-    print(set_docligne)
-    try:
-        # don't like this line
-        # connex.execute(sql_docligne)
-        print("SUCCESS DOCLIGNE")
-    except Exception as e:
-        print("an error occurred on sql docligne executed!", e)
-        logging.ERROR("An error occurred on the sql docligne execution! exception is ", e)
+    # print(set_docligne)
+    for sql_line in set_docligne:
+        try:
+            # don't like this line
+            connex.execute(sql_line)
+            print("SUCCESS DOCLIGNE")
+        except Exception as e:
+            print("an error occurred on sql docligne executed!", e)
+            logging.ERROR("An error occurred on the sql docligne execution! exception is ", e)
     print("DEVIS importé SUCCES!!...")
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
