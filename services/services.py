@@ -179,5 +179,16 @@ class Services:
             )
         return dict_unite[num_unite]
 
-    # you should use this function for testing if the article is compose or not
+    @staticmethod
+    def calculate_ht(ttc, connexion):
+        tax = pd.read_sql_query("""SELECT [TA_Taux] FROM [dbo].[F_TAXE] WHERE [TA_Intitule] = 'TVA collectée 20%'""", con=connexion)
+        for i, row in tax.iterrows():
+            x = row['TA_Taux']
+        return ttc / (1 + x/100)
 
+
+if __name__ == '__main__':
+    import connexion_to_sql_server
+    conn = connexion_to_sql_server.connect_with_pymssql(server='RAVALOHERY-PC', database="ALU_SQL")
+    test_ht = Services.calculate_ht(ttc=855500, connexion=conn)
+    print(test_ht)

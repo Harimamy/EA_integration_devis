@@ -703,7 +703,7 @@ if __name__ == '__main__':
                                [DL_DatePL],[DL_QtePL],[DL_NoColis],[DL_NoLink],[DL_QteRessource],[DL_TypePL],[DL_DateAvancement],[Largeur],[Hauteur],
                                [Remplissage_1],[Remplissage_2])
                                VALUES (0, 0, '{client_name}', '{do_piece}', '', '', '{date_document}',
-                               '1900-01-01 00:00:00', '{date_document}', 10000, '{do_ref[-17:]}', 0, 0, 0, '{art_ref_pf}', '{designation}',
+                               '1900-01-01 00:00:00', '{date_document}', 10000, '{do_ref[-17:].replace("STANDARD", "STD")}', 0, 0, 0, '{art_ref_pf}', '{designation}',
                                {qte}, {qte}, 0.0, 0.0, 0.0, 0.0, 1,
                                0.0, 0, 0.0, 0, {dl_pu_ht},
                                0.0, 20.0, 0, 0, 0.0, 0, 0, 1, {art_gamme_no},
@@ -748,7 +748,7 @@ if __name__ == '__main__':
             art_ref_pf = dict_AR_design[row['Désignation']]
             art_eu_enumere = Services.find_eu_enumere(num_unite=dict_AR_unite[art_ref_pf])
             dl_pu_ttc = row['P.U. TTC']
-            dl_pu_ht = dl_pu_ttc / 1.20
+            dl_pu_ht = Services.calculate_ht(ttc=dl_pu_ttc, connexion=connexion)
             montant_ht = dl_pu_ht * qte
             montant_ttc = row['P.T. TTC']
             width, height = row['L'], row['H']
