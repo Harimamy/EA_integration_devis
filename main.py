@@ -679,17 +679,17 @@ if __name__ == '__main__':
         logging.ERROR('Exception catched on set article concerned and the dict art ref trying ', ex)
 
     sql_docligne, set_docligne = None, set()
-    fill_in1, fill_in2, designation = '', '', None
+    fill_in1, fill_in2, designation = set(), set(), None
     for i, row in df_docligne.iterrows():
         if all([pd.isna(row['Qté']), pd.isna(row['L']), pd.isna(row['H']), pd.isna(row['P.U. TTC']), pd.isna(row['P.T. TTC'])]):
             if row['Désignation'].__contains__('Bardage'):
-                fill_in1 = fill_in1 + " " + row['Désignation']
+                fill_in1.add(row['Désignation'])
             elif row['Désignation'].__contains__('ACP'):
-                fill_in1 = fill_in1 + " " + row['Désignation']
-            elif row['Désignation'].__contains__('Mélamine'):
-                fill_in1 = fill_in1 + " " + row['Désignation']
+                fill_in1.add(row['Désignation'])
+            elif row['Désignation'].__contains__('Mélaminé'):
+                fill_in1.add(row['Désignation'])
             elif row['Désignation'].__contains__('vitrage'):
-                fill_in2 = fill_in2 + " " + row['Désignation']
+                fill_in2.add(row['Désignation'])
 
             # here is the change of place for sql_docligne first test
             sql_docligne = f"""INSERT INTO [dbo].[F_DOCLIGNE] ([DO_Domaine],[DO_Type],[CT_Num],[DO_Piece],[DL_PieceBC],[DL_PieceBL],[DO_Date],
@@ -703,7 +703,7 @@ if __name__ == '__main__':
                                [DL_DatePL],[DL_QtePL],[DL_NoColis],[DL_NoLink],[DL_QteRessource],[DL_TypePL],[DL_DateAvancement],[Largeur],[Hauteur],
                                [Remplissage_1],[Remplissage_2])
                                VALUES (0, 0, '{client_name}', '{do_piece}', '', '', '{date_document}',
-                               '1900-01-01 00:00:00', '{date_document}', 10000, '{do_ref[-17:].replace("STANDARD", "STD")}', 0, 0, 0, '{art_ref_pf}', '{designation}',
+                               '1900-01-01 00:00:00', '{date_document}', 10000, '{Services.set_reference(do_ref)}', 0, 0, 0, '{art_ref_pf}', '{designation}',
                                {qte}, {qte}, 0.0, 0.0, 0.0, 0.0, 1,
                                0.0, 0, 0.0, 0, {dl_pu_ht},
                                0.0, 20.0, 0, 0, 0.0, 0, 0, 1, {art_gamme_no},
@@ -711,8 +711,7 @@ if __name__ == '__main__':
                                1, 0.0, {dl_pu_ttc}, '1900-01-01 00:00:00', '', 0.0, 0, 0, 0.0,
                                1, NULL, 0,'', {montant_ht}, {montant_ttc}, 0, 0, '',
                                '1900-01-01 00:00:00', 0.0, '', 0, 0, 0, '1900-01-01 00:00:00', {width}, {height},
-                               '{fill_in1.strip()}', '{fill_in2.strip()}')"""
-
+                               '{"/".join(fill_in1)}', '{"/".join(fill_in2)}')"""
             # this docligne exclude all price HT that calculed automatically by sage on réajustement des cumuls
             # sql_docligne = f"""INSERT INTO [dbo].[F_DOCLIGNE] ([DO_Domaine],[DO_Type],[CT_Num],[DO_Piece],[DL_PieceBC],[DL_PieceBL],[DO_Date],
             #                    [DL_DateBC],[DL_DateBL],[DL_Ligne],[DO_Ref],[DL_TNomencl],[DL_TRemPied],[DL_TRemExep],[AR_Ref],[DL_Design],
@@ -735,14 +734,12 @@ if __name__ == '__main__':
             #                    '1900-01-01 00:00:00', 0.0, '', 0, 0, 0, '1900-01-01 00:00:00', {width}, {height},
             #                    '{fill_in1.strip()}', '{fill_in2.strip()}')"""
 
-
-
         else:
             # the process read here for each PF on the top title
             fill_in1, fill_in2 = '', ''
             if sql_docligne:
                 set_docligne.add(sql_docligne)
-            unit_cost_price = 0.0
+            unit_cost_price = "NULL"
             dl_cmup = 'NULL'
             qte, designation = row['Qté'], row['Désignation']
             art_ref_pf = dict_AR_design[row['Désignation']]
@@ -764,7 +761,6 @@ if __name__ == '__main__':
 
         # executing the docligne in progress
     set_docligne.add(sql_docligne)
-    # print(set_docligne)
     for sql_line in set_docligne:
         try:
             # don't like this line

@@ -186,9 +186,26 @@ class Services:
             x = row['TA_Taux']
         return ttc / (1 + x/100)
 
+    @staticmethod
+    def set_reference(do_ref):
+        ref_response = None
+        if len(do_ref) <= 17:
+            return do_ref.upper().replace("CHANTIER", "").strip()
+        elif "chantier" in do_ref.lower():
+            ref_response = do_ref.upper().replace("CHANTIER", "").strip().split()[0]
+        elif "standard" in do_ref.lower():
+            ref_response = do_ref.upper().replace("STANDARD", "STD").strip()
+            if ref_response <= 17:
+                return ref_response
+            else:
+                return ref_response.split()[1].strip()
+        return ref_response
+
 
 if __name__ == '__main__':
-    import connexion_to_sql_server
-    conn = connexion_to_sql_server.connect_with_pymssql(server='RAVALOHERY-PC', database="ALU_SQL")
-    test_ht = Services.calculate_ht(ttc=855500, connexion=conn)
-    print(test_ht)
+    # import connexion_to_sql_server
+    # conn = connexion_to_sql_server.connect_with_pymssql(server='RAVALOHERY-PC', database="ALU_SQL")
+    # test_ht = Services.calculate_ht(ttc=855500, connexion=conn)
+    # print(test_ht)
+    print(Services.set_reference(do_ref="Chantier TAMATAVE BAZABOUZOU"))
+    # print(Services)
