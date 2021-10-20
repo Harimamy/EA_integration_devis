@@ -38,7 +38,7 @@ def get_df_from_file_input(path):
 
 # it's valid only on the process for inserting the devis from PROGES
 def process_docentete_df(df_export):
-    dict_docentete, client_name, do_piece, document_date, do_ref = dict(), None, None, None, None
+    dict_docentete, client_name, do_piece, document_date, do_ref, global_color = dict(), None, None, None, None, None
     for i, (index, row) in enumerate(df_export.iterrows()):
         for col in df_export.columns:
             if any([not document_date, pd.isna(document_date)]):
@@ -62,7 +62,8 @@ def process_docentete_df(df_export):
                     elif row[col].__contains__("Devis N"):
                         do_piece = row[col].split()[-1] if do_piece is None else do_piece
 
-
+                    elif row[col].startswith("Suite à votre demande,"):
+                        global_color = " ".join(str(word) for word in row[col].split() if word.isupper())
 
                 except Exception as e:
                     print("Exception catched ", e)
@@ -72,7 +73,7 @@ def process_docentete_df(df_export):
             print("No piece or No Devis -- ", do_piece)
             print("Référence --", do_ref)
             dict_docentete['do_date'], dict_docentete['client_name'] = document_date, client_name
-            dict_docentete['do_piece'], dict_docentete['do_ref'] = do_piece, do_ref
+            dict_docentete['do_piece'], dict_docentete['do_ref'], dict_docentete['global_color'] = do_piece, do_ref, global_color
             break
     return dict_docentete
 
@@ -115,7 +116,12 @@ if __name__ == '__main__':
     time_now = datetime.now()
     path = r'''D:\sage donnees\ALU\Devis 1\base_DEVIS.xlsx'''
     devis_from_export = pd.read_excel(path, sheet_name=pd.ExcelFile(path).sheet_names[0], header=None)
-    dict_docentete = process_docentete_df(df_export=devis_from_export)
+    Services.show_message_box(
+        title="Integration DEVIS",
+        text="Vérification de la conformité du fichier en cours...",
+        style=0
+    )
+    dict_docentete, df_docligne = process_docentete_df(df_export=devis_from_export), process_docligne_df(df_export=devis_from_export)
     do_piece, date_document, do_ref, deposit = dict_docentete['do_piece'], dict_docentete['do_date'], dict_docentete['do_ref'], 1
     logging.basicConfig(
         filename=r'''C:\Integration SAGE\DEVIS\Log\console_{}.log'''.format(do_piece),
@@ -198,7 +204,6 @@ if __name__ == '__main__':
         raise SystemExit()
 
     dict_AR_design, dict_AR_unite = Services.prepare_df_articles(connexion=connexion)
-    df_docligne = process_docligne_df(df_export=devis_from_export)
 
     # Here is to add the art_ref for each PF
     df_docligne['Référence'] = ''
