@@ -2,6 +2,7 @@ import logging
 import math
 import os
 from datetime import datetime
+from tkinter import Tk, Listbox
 
 import pandas as pd
 
@@ -113,15 +114,27 @@ def process_docligne_df(df_export):
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
+    top = Tk()
+    list_box, index = Listbox(top), 1
     time_now = datetime.now()
     path = r'''D:\sage donnees\ALU\Devis 1\base_DEVIS.xlsx'''
     devis_from_export = pd.read_excel(path, sheet_name=pd.ExcelFile(path).sheet_names[0], header=None)
-    Services.show_message_box(
-        title="Integration DEVIS",
-        text="Vérification de la conformité du fichier en cours...",
-        style=0
-    )
-    dict_docentete, df_docligne = process_docentete_df(df_export=devis_from_export), process_docligne_df(df_export=devis_from_export)
+    # Services.show_message_box(
+    #     title="Integration DEVIS",
+    #     text="Vérification de la conformité du fichier en cours...",
+    #     style=0
+    # )
+    list_box.insert(index, "Vérification de la conformité du fichier en cours!!...")
+    try:
+        dict_docentete, df_docligne = process_docentete_df(df_export=devis_from_export), process_docligne_df(df_export=devis_from_export)
+    except Exception as e:
+        logging.DEBUG("an exception occurred when getting all info about docentete and docligne! ")
+        Services.show_message_box(
+            title="Integration DEVIS",
+            text="Erreur détecté lors du lancement du process docentete/docligne!",
+            style=0
+        )
+        raise SystemExit()
     do_piece, date_document, do_ref, deposit = dict_docentete['do_piece'], dict_docentete['do_date'], dict_docentete['do_ref'], 1
     logging.basicConfig(
         filename=r'''C:\Integration SAGE\DEVIS\Log\console_{}.log'''.format(do_piece),
@@ -163,10 +176,12 @@ if __name__ == '__main__':
     client_name = Services.find_code_client(client_code, connexion=connexion)
     date_hour = date_hour = "{}{:02d}{:02d}{:02d}".format("000", time_now.hour, time_now.minute, time_now.second)
     work_site = Services.set_reference(do_ref)
+    list_box.insert(index+1, "Etablissement de la connexion à la base de données..")
     try:
         connex = connexion.connect()
     except Exception as e:
         print("An error occurred on the connexion into the server! as ", e)
+    list_box.insert(index, "Connexion établie avec succès...")
     # the new method for writing the sql query is to define the number of field to equal with the number of the value field
     sql_docentete = f"""INSERT INTO   [dbo].  [F_DOCENTETE]([DO_Domaine],  [DO_Type],  [DO_Piece],  [DO_Date],  [DO_Ref],  [DO_Tiers],  
                         [CO_No],  [DO_Period],  [DO_Devise],  [DO_Cours],  [DE_No],  [LI_No],  [CT_NumPayeur],  [DO_Expedit],  
@@ -190,6 +205,7 @@ if __name__ == '__main__':
                                0, 0.0, 0, 0.0, 0, 0,
                                0.0, 0, 0, 0.0, 0, 0, 0, 
                                '', '', 0, 0, '{work_site}', '')"""
+    list_box.insert(index+1, "Préparation d'import en cours..")
     try:
         connex.execute(sql_docentete)
         print("SUCCESS docentete!!")
@@ -303,6 +319,7 @@ if __name__ == '__main__':
 
         # executing the docligne in progress
     set_docligne.add(sql_docligne)
+    list_box.insert(index, "Importation des lignes de devis en cours...")
     for sql_line in set_docligne:
         try:
             # don't like this line
@@ -311,5 +328,10 @@ if __name__ == '__main__':
         except Exception as e:
             print("an error occurred on sql docligne executed!", e)
             logging.ERROR("An error occurred on the sql docligne execution! exception is ", e)
+    Services.show_message_box(
+        title="Integration DEVIS",
+        text=f"DEVIS N° {do_piece} importé avec succès!",
+        style=0
+    )
     print("DEVIS importé SUCCES!!...")
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
