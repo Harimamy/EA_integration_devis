@@ -1,4 +1,5 @@
 from turtle import color
+import ctypes
 
 import pandas as pd
 
@@ -195,12 +196,19 @@ class Services:
             ref_response = do_ref.upper().replace("CHANTIER", "").strip().split()[0]
         elif "standard" in do_ref.lower():
             ref_response = do_ref.upper().replace("STANDARD", "STD").strip()
-            if ref_response <= 17:
+            if len(ref_response) <= 17:
                 return ref_response
             else:
                 return ref_response.split()[1].strip()
         return ref_response
 
+    @staticmethod
+    def show_message_box(title, text, style):
+        return ctypes.windll.user32.MessageBoxW(0, text, title, style)
+
+    @staticmethod
+    def read_tables_corresponding():
+        pass
 
 if __name__ == '__main__':
     # import connexion_to_sql_server
