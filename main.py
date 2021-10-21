@@ -1,6 +1,8 @@
+import glob
 import logging
 import math
 import os
+import time
 from datetime import datetime
 from tkinter import Tk, Listbox
 
@@ -9,6 +11,12 @@ import pandas as pd
 from services.cipher_from_AES import AESCipher
 from services.services import Services
 from services.connexion_to_sql_server import connect_with_pymssql, connect_with_pymssql_login
+
+
+def update_listbox(index_list, listbox, text):
+    listbox.insert(index_list, str(text))
+    listbox.update()
+    time.sleep(1)
 
 
 def update_progress_label(progressbar, art_ref, check_last=None):
@@ -114,9 +122,29 @@ def process_docligne_df(df_export):
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
+    logging.basicConfig(
+        filename=r'''C:\Integration SAGE\DEVIS\Log\console_{}.log'''.format(do_piece),
+        level=logging.DEBUG,
+        format='%(asctime)s -- %(name)s -- %(levelname)s -- %(message)s'
+    )
     top = Tk()
-    list_box, index = Listbox(top), 1
+    list_box, index = Listbox(top, font=('Tahoma', 10), width=80, height=20), 1
+    list_box.pack()
     time_now = datetime.now()
+    list_files = [file_excel for file_excel in glob.glob(r'''C:\Integration SAGE\DEVIS\Files to import\*''') if not file_excel.split("\\")[-1].startswith('~$')]
+    if list_files:
+        pass
+    else:
+        Services.show_message_box(
+            title="Integration DEVIS",
+            text="Le(s) fichier(s) à importer n'existe(nt) pas!",
+            style=0
+        )
+        logging.DEBUG("there is  no file(s) on the folder C:\\Integration SAGE\\DEVIS\\Files\\")
+        raise SystemExit()
+
+    # should follow on each iteration on the list named list_files here
+    # last commit
     path = r'''D:\sage donnees\ALU\Devis 1\base_DEVIS.xlsx'''
     devis_from_export = pd.read_excel(path, sheet_name=pd.ExcelFile(path).sheet_names[0], header=None)
     # Services.show_message_box(
@@ -124,7 +152,8 @@ if __name__ == '__main__':
     #     text="Vérification de la conformité du fichier en cours...",
     #     style=0
     # )
-    list_box.insert(index, "Vérification de la conformité du fichier en cours!!...")
+    # list_box.insert(index, "Vérification de la conformité du fichier en cours!!...")
+    update_listbox(index_list=index, text="Vérification de la conformité du fichier en cours!!...", listbox=list_box)
     try:
         dict_docentete, df_docligne = process_docentete_df(df_export=devis_from_export), process_docligne_df(df_export=devis_from_export)
     except Exception as e:
@@ -136,11 +165,6 @@ if __name__ == '__main__':
         )
         raise SystemExit()
     do_piece, date_document, do_ref, deposit = dict_docentete['do_piece'], dict_docentete['do_date'], dict_docentete['do_ref'], 1
-    logging.basicConfig(
-        filename=r'''C:\Integration SAGE\DEVIS\Log\console_{}.log'''.format(do_piece),
-        level=logging.DEBUG,
-        format='%(asctime)s -- %(name)s -- %(levelname)s -- %(message)s'
-    )
 
     try:
         class_aes = AESCipher('7ql9zA1bqqSnoYnt4zw3HppY')
@@ -176,12 +200,16 @@ if __name__ == '__main__':
     client_name = Services.find_code_client(client_code, connexion=connexion)
     date_hour = date_hour = "{}{:02d}{:02d}{:02d}".format("000", time_now.hour, time_now.minute, time_now.second)
     work_site = Services.set_reference(do_ref)
-    list_box.insert(index+1, "Etablissement de la connexion à la base de données..")
+    # list_box.insert(index+1, "Etablissement de la connexion à la base de données..")
+    index += 1
+    update_listbox(index_list=index, text="Etablissement de la connexion à la base de données..", listbox=list_box)
     try:
         connex = connexion.connect()
     except Exception as e:
         print("An error occurred on the connexion into the server! as ", e)
-    list_box.insert(index, "Connexion établie avec succès...")
+    # list_box.insert(index, "Connexion établie avec succès...")
+    update_listbox(index_list=index, text="Connexion établie avec succès...", listbox=list_box)
+
     # the new method for writing the sql query is to define the number of field to equal with the number of the value field
     sql_docentete = f"""INSERT INTO   [dbo].  [F_DOCENTETE]([DO_Domaine],  [DO_Type],  [DO_Piece],  [DO_Date],  [DO_Ref],  [DO_Tiers],  
                         [CO_No],  [DO_Period],  [DO_Devise],  [DO_Cours],  [DE_No],  [LI_No],  [CT_NumPayeur],  [DO_Expedit],  
@@ -205,9 +233,11 @@ if __name__ == '__main__':
                                0, 0.0, 0, 0.0, 0, 0,
                                0.0, 0, 0, 0.0, 0, 0, 0, 
                                '', '', 0, 0, '{work_site}', '')"""
-    list_box.insert(index+1, "Préparation d'import en cours..")
+    # list_box.insert(index+1, )
+    index += 1
+    update_listbox(index_list=index, text="Préparation d'import en cours..", listbox=list_box)
     try:
-        connex.execute(sql_docentete)
+        # connex.execute(sql_docentete)
         print("SUCCESS docentete!!")
     except Exception as e:
         print('Error occurred on the execution of the sql docentete, the detail is ', e)
@@ -319,18 +349,27 @@ if __name__ == '__main__':
 
         # executing the docligne in progress
     set_docligne.add(sql_docligne)
-    list_box.insert(index, "Importation des lignes de devis en cours...")
+    # list_box.insert(index, )
+    index += 1
+    update_listbox(index_list=index, listbox=list_box, text="Importation des lignes de devis en cours...")
+    # list_box.after(ms=1000, func=insert_value, li)
     for sql_line in set_docligne:
         try:
             # don't like this line
-            connex.execute(sql_line)
+            # connex.execute(sql_line)
             print("SUCCESS DOCLIGNE")
         except Exception as e:
             print("an error occurred on sql docligne executed!", e)
             logging.ERROR("An error occurred on the sql docligne execution! exception is ", e)
+    index += 1
+    update_listbox(index_list=index, listbox=list_box, text=f"{len(set_docligne)} lignes importées avec succès! \n  DEVIS N°{do_piece}")
+    top.destroy()
+    top.mainloop()
+    time.sleep(1)
+
     Services.show_message_box(
         title="Integration DEVIS",
-        text=f"DEVIS N° {do_piece} importé avec succès!",
+        text=f"{len(set_docligne)} lignes sur le DEVIS N°{do_piece} importé avec succès!",
         style=0
     )
     print("DEVIS importé SUCCES!!...")
