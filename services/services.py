@@ -48,7 +48,7 @@ class Services:
 
     @staticmethod
     def find_code_client(client_name, connexion):
-        df_client = pd.read_sql_query(r'SELECT * FROM [dbo].[F_COMPTET] WHERE [CT_Type] = 0', con=connexion)
+        df_client = pd.read_sql_query(r'SELECT * FROM [dbo].[F_COMPTET] WHERE [CT_Type] = 0', con=connexion) # 0 is for client and 1 is for FOUR
         dict_client = {row['CT_Intitule']: row['CT_Num'] for i, row in df_client.iterrows()}
         # for cli in df_client['CT_Intitule']:
         #     # if client_name in cli:
@@ -209,6 +209,14 @@ class Services:
     @staticmethod
     def read_tables_corresponding():
         pass
+
+    @staticmethod
+    def control_pf_ccl_ca(connect):
+        df_pf = pd.read_sql_query(sql='''''', con=connect)
+        df_ccl = pd.read_sql_query(sql='''''', con=connect)
+        df_ca = pd.read_sql_query(sql='''''', con=connect)
+        return df_pf, df_ccl, df_ca
+
 
 if __name__ == '__main__':
     # import connexion_to_sql_server

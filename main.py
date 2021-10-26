@@ -122,16 +122,11 @@ def process_docligne_df(df_export):
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    logging.basicConfig(
-        filename=r'''C:\Integration SAGE\DEVIS\Log\console_{}.log'''.format(do_piece),
-        level=logging.DEBUG,
-        format='%(asctime)s -- %(name)s -- %(levelname)s -- %(message)s'
-    )
     top = Tk()
     list_box, index = Listbox(top, font=('Tahoma', 10), width=80, height=20), 1
     list_box.pack()
     time_now = datetime.now()
-    list_files = [file_excel for file_excel in glob.glob(r'''C:\Integration SAGE\DEVIS\Files to import\*''') if not file_excel.split("\\")[-1].startswith('~$')]
+    list_files = [file_excel for file_excel in glob.glob(r'''C:\Integration SAGE\DEVIS\Files\*''') if not file_excel.split("\\")[-1].startswith('~$')]
     if list_files:
         pass
     else:
@@ -140,7 +135,7 @@ if __name__ == '__main__':
             text="Le(s) fichier(s) à importer n'existe(nt) pas!",
             style=0
         )
-        logging.DEBUG("there is  no file(s) on the folder C:\\Integration SAGE\\DEVIS\\Files\\")
+        # logging.DEBUG("there is  no file(s) on the folder C:\\Integration SAGE\\DEVIS\\Files\\")
         raise SystemExit()
 
     # should follow on each iteration on the list named list_files here
@@ -165,6 +160,11 @@ if __name__ == '__main__':
         )
         raise SystemExit()
     do_piece, date_document, do_ref, deposit = dict_docentete['do_piece'], dict_docentete['do_date'], dict_docentete['do_ref'], 1
+    logging.basicConfig(
+        filename=r'''C:\Integration SAGE\DEVIS\Log\console_{}.log'''.format(do_piece),
+        level=logging.DEBUG,
+        format='%(asctime)s -- %(name)s -- %(levelname)s -- %(message)s'
+    )
 
     try:
         class_aes = AESCipher('7ql9zA1bqqSnoYnt4zw3HppY')
@@ -237,7 +237,7 @@ if __name__ == '__main__':
     index += 1
     update_listbox(index_list=index, text="Préparation d'import en cours..", listbox=list_box)
     try:
-        # connex.execute(sql_docentete)
+        connex.execute(sql_docentete)
         print("SUCCESS docentete!!")
     except Exception as e:
         print('Error occurred on the execution of the sql docentete, the detail is ', e)
@@ -279,7 +279,6 @@ if __name__ == '__main__':
             elif row['Désignation'].lower().__contains__('vitrage'):
                 fill_in2.add(row['Désignation'])
 
-            # here is the change of place for sql_docligne first test
             sql_docligne = f"""INSERT INTO [dbo].[F_DOCLIGNE] ([DO_Domaine],[DO_Type],[CT_Num],[DO_Piece],[DL_PieceBC],[DL_PieceBL],[DO_Date],
                                [DL_DateBC],[DL_DateBL],[DL_Ligne],[DO_Ref],[DL_TNomencl],[DL_TRemPied],[DL_TRemExep],[AR_Ref],[DL_Design],
                                [DL_Qte],[DL_QteBC],[DL_QteBL],[DL_PoidsNet],[DL_PoidsBrut],[DL_Remise01REM_Valeur],[DL_Remise01REM_Type],
@@ -300,6 +299,8 @@ if __name__ == '__main__':
                                1, NULL, 0,'', {montant_ht}, {montant_ttc}, 0, 0, '',
                                '1900-01-01 00:00:00', 0.0, '', 0, 0, 0, '1900-01-01 00:00:00', {width}, {height},
                                '{"/".join(fill_in1)}', '{"/".join(fill_in2)}')"""
+
+            # here is the change of place for sql_docligne first test
             # this docligne exclude all price HT that calculed automatically by sage on réajustement des cumuls
             # sql_docligne = f"""INSERT INTO [dbo].[F_DOCLIGNE] ([DO_Domaine],[DO_Type],[CT_Num],[DO_Piece],[DL_PieceBC],[DL_PieceBL],[DO_Date],
             #                    [DL_DateBC],[DL_DateBL],[DL_Ligne],[DO_Ref],[DL_TNomencl],[DL_TRemPied],[DL_TRemExep],[AR_Ref],[DL_Design],
@@ -342,6 +343,28 @@ if __name__ == '__main__':
                 color_gamme=row["Coloris"] if pd.isna(row["Coloris"]) else Services.auto_complete_gam(row["Coloris"]),
                 art_ref=art_ref_pf
             )
+
+            sql_docligne = f"""INSERT INTO [dbo].[F_DOCLIGNE] ([DO_Domaine],[DO_Type],[CT_Num],[DO_Piece],[DL_PieceBC],[DL_PieceBL],[DO_Date],
+                               [DL_DateBC],[DL_DateBL],[DL_Ligne],[DO_Ref],[DL_TNomencl],[DL_TRemPied],[DL_TRemExep],[AR_Ref],[DL_Design],
+                               [DL_Qte],[DL_QteBC],[DL_QteBL],[DL_PoidsNet],[DL_PoidsBrut],[DL_Remise01REM_Valeur],[DL_Remise01REM_Type],
+                               [DL_Remise02REM_Valeur],[DL_Remise02REM_Type],[DL_Remise03REM_Valeur],[DL_Remise03REM_Type],[DL_PrixUnitaire],
+                               [DL_PUBC],[DL_Taxe1],[DL_TypeTaux1],[DL_TypeTaxe1],[DL_Taxe2],[DL_TypeTaux2],[DL_TypeTaxe2],[CO_No],[AG_No1],
+                               [AG_No2],[DL_PrixRU],[DL_CMUP],[DL_MvtStock],[DT_No],[AF_RefFourniss],[EU_Enumere],[EU_Qte],[DL_TTC],[DE_No],
+                               [DL_NoRef],[DL_PUDevise],[DL_PUTTC],[DO_DateLivr],[CA_Num],[DL_Taxe3],[DL_TypeTaux3],[DL_TypeTaxe3],[DL_Frais],
+                               [DL_Valorise],[AR_RefCompose],[DL_NonLivre],[AC_RefClient],[DL_MontantHT],[DL_MontantTTC],[DL_FactPoids],[DL_Escompte],[DL_PiecePL],
+                               [DL_DatePL],[DL_QtePL],[DL_NoColis],[DL_NoLink],[DL_QteRessource],[DL_TypePL],[DL_DateAvancement],[Largeur],[Hauteur],
+                               [Remplissage_1],[Remplissage_2])
+                               VALUES (0, 0, '{client_name}', '{do_piece}', '', '', '{date_document}',
+                               '1900-01-01 00:00:00', '{date_document}', 10000, '{Services.set_reference(do_ref)}', 0, 0, 0, '{art_ref_pf}', '{designation}',
+                               {qte}, {qte}, 0.0, 0.0, 0.0, 0.0, 1,
+                               0.0, 0, 0.0, 0, {dl_pu_ht},
+                               0.0, 20.0, 0, 0, 0.0, 0, 0, 1, {art_gamme_no},
+                               0, {unit_cost_price}, {dl_cmup}, 0, 0, '', '{art_eu_enumere}', {qte}, 1, {deposit},
+                               1, 0.0, {dl_pu_ttc}, '1900-01-01 00:00:00', '', 0.0, 0, 0, 0.0,
+                               1, NULL, 0,'', {montant_ht}, {montant_ttc}, 0, 0, '',
+                               '1900-01-01 00:00:00', 0.0, '', 0, 0, 0, '1900-01-01 00:00:00', {width}, {height},
+                               '{"/".join(fill_in1)}', '{"/".join(fill_in2)}')"""
+
             # query_var = "INSRT INTO {}".format(row['Désignation'])
 
             # should verify the DL_Valorise because, this part 1 if compose and 0 if not
@@ -356,7 +379,7 @@ if __name__ == '__main__':
     for sql_line in set_docligne:
         try:
             # don't like this line
-            # connex.execute(sql_line)
+            connex.execute(sql_line)
             print("SUCCESS DOCLIGNE")
         except Exception as e:
             print("an error occurred on sql docligne executed!", e)
