@@ -267,7 +267,7 @@ if __name__ == '__main__':
         logging.ERROR('Exception catched on set article concerned and the dict art ref trying ', ex)
 
     sql_docligne, set_docligne = None, set()
-    fill_in1, fill_in2, designation = set(), set(), None
+    fill_in1, fill_in2, art_gamme_no2, designation = set(), set(), 0, None
     for i, row in df_docligne.iterrows():
         if all([pd.isna(row['Qté']), pd.isna(row['L']), pd.isna(row['H']), pd.isna(row['P.U. TTC']), pd.isna(row['P.T. TTC'])]):
             if row['Désignation'].lower().__contains__('bardage'):
@@ -278,6 +278,14 @@ if __name__ == '__main__':
                 fill_in1.add(row['Désignation'])
             elif row['Désignation'].lower().__contains__('vitrage'):
                 fill_in2.add(row['Désignation'])
+                enum_gam2 = str(row['Désignation']).replace("vitrage", "").strip()
+                art_gamme_no2 = Services.find_artgamme_no(
+                    dict_corresp_ref=dict_art_ref,
+                    color_gamme=enum_gam2,
+                    art_ref=art_ref_pf
+                )
+                print("ARTICLE ", art_ref_pf)
+                print("enum gamm2 ", enum_gam2, "art_gamm_no2", art_gamme_no2)
 
             sql_docligne = f"""INSERT INTO [dbo].[F_DOCLIGNE] ([DO_Domaine],[DO_Type],[CT_Num],[DO_Piece],[DL_PieceBC],[DL_PieceBL],[DO_Date],
                                [DL_DateBC],[DL_DateBL],[DL_Ligne],[DO_Ref],[DL_TNomencl],[DL_TRemPied],[DL_TRemExep],[AR_Ref],[DL_Design],
@@ -294,11 +302,11 @@ if __name__ == '__main__':
                                {qte}, {qte}, 0.0, 0.0, 0.0, 0.0, 1,
                                0.0, 0, 0.0, 0, {dl_pu_ht},
                                0.0, 20.0, 0, 0, 0.0, 0, 0, 1, {art_gamme_no},
-                               0, {unit_cost_price}, {dl_cmup}, 0, 0, '', '{art_eu_enumere}', {qte}, 1, {deposit},
+                               {art_gamme_no2 if art_gamme_no2 else 0}, {unit_cost_price}, {dl_cmup}, 0, 0, '', '{art_eu_enumere}', {qte}, 1, {deposit},
                                1, 0.0, {dl_pu_ttc}, '1900-01-01 00:00:00', '', 0.0, 0, 0, 0.0,
                                1, NULL, 0,'', {montant_ht}, {montant_ttc}, 0, 0, '',
                                '1900-01-01 00:00:00', 0.0, '', 0, 0, 0, '1900-01-01 00:00:00', {width}, {height},
-                               '{"/".join(fill_in1)}', '{"/".join(fill_in2)}')"""
+                               '{"/".join(fill_in2) if art_gamme_no2 is None else ""}', '{"/".join(fill_in1)}')"""
 
             # here is the change of place for sql_docligne first test
             # this docligne exclude all price HT that calculed automatically by sage on réajustement des cumuls
@@ -359,11 +367,11 @@ if __name__ == '__main__':
                                {qte}, {qte}, 0.0, 0.0, 0.0, 0.0, 1,
                                0.0, 0, 0.0, 0, {dl_pu_ht},
                                0.0, 20.0, 0, 0, 0.0, 0, 0, 1, {art_gamme_no},
-                               0, {unit_cost_price}, {dl_cmup}, 0, 0, '', '{art_eu_enumere}', {qte}, 1, {deposit},
+                               {art_gamme_no2 if art_gamme_no2 else 0}, {unit_cost_price}, {dl_cmup}, 0, 0, '', '{art_eu_enumere}', {qte}, 1, {deposit},
                                1, 0.0, {dl_pu_ttc}, '1900-01-01 00:00:00', '', 0.0, 0, 0, 0.0,
                                1, NULL, 0,'', {montant_ht}, {montant_ttc}, 0, 0, '',
                                '1900-01-01 00:00:00', 0.0, '', 0, 0, 0, '1900-01-01 00:00:00', {width}, {height},
-                               '{"/".join(fill_in1)}', '{"/".join(fill_in2)}')"""
+                               '{"/".join(fill_in2) if art_gamme_no2 is None else ""}', '{"/".join(fill_in1)}')"""
 
             # query_var = "INSRT INTO {}".format(row['Désignation'])
 

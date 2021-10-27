@@ -45,7 +45,6 @@ class Services:
             if any((color_gamme in i, color_gamme.upper() in i, color_gamme.lower() in i, color_gamme.capitalize() in i)):
                 return i[0]
 
-
     @staticmethod
     def find_code_client(client_name, connexion):
         df_client = pd.read_sql_query(r'SELECT * FROM [dbo].[F_COMPTET] WHERE [CT_Type] = 0', con=connexion) # 0 is for client and 1 is for FOUR
@@ -55,7 +54,6 @@ class Services:
         #     # regex
         #     pass
         return dict_client[client_name]
-
 
     @staticmethod
     def get_dict_art_ref_gamme(connexion, include_article):
