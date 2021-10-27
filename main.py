@@ -124,6 +124,8 @@ def process_docligne_df(df_export):
 if __name__ == '__main__':
     top = Tk()
     list_box, index = Listbox(top, font=('Tahoma', 10), width=80, height=20), 1
+    top.iconbitmap('')
+    list_box.it
     list_box.pack()
     time_now = datetime.now()
     list_files = [file_excel for file_excel in glob.glob(r'''C:\Integration SAGE\DEVIS\Files\*''') if not file_excel.split("\\")[-1].startswith('~$')]
@@ -133,7 +135,7 @@ if __name__ == '__main__':
         Services.show_message_box(
             title="Integration DEVIS",
             text="Le(s) fichier(s) à importer n'existe(nt) pas!",
-            style=0
+            style=0x40
         )
         # logging.DEBUG("there is  no file(s) on the folder C:\\Integration SAGE\\DEVIS\\Files\\")
         raise SystemExit()
@@ -155,8 +157,8 @@ if __name__ == '__main__':
         logging.DEBUG("an exception occurred when getting all info about docentete and docligne! ")
         Services.show_message_box(
             title="Integration DEVIS",
-            text="Erreur détecté lors du lancement du process docentete/docligne!",
-            style=0
+            text="Erreur détecté lors du process docentete/docligne, veuillez vérifiez la conformité du fichier s'il vous plait!",
+            style=0x10
         )
         raise SystemExit()
     do_piece, date_document, do_ref, deposit = dict_docentete['do_piece'], dict_docentete['do_date'], dict_docentete['do_ref'], 1
@@ -169,7 +171,11 @@ if __name__ == '__main__':
     try:
         class_aes = AESCipher('7ql9zA1bqqSnoYnt4zw3HppY')
     except Exception as e:
-        Services.show_message_box("Erreur d'instance sur l'encryptage AES sur le mot de passe et utilisateur de la base Gestion Commerciale!")
+        Services.show_message_box(
+            title='Integration DEVIS',
+            text="Erreur d'instance sur l'encryptage AES sur le mot de passe et l'utilisateur de la base Gestion Commerciale!",
+            style=0x10
+        )
         print("Erreur d'instance sur l'encryptage AES...", e)
         logging.ERROR("Erreur d'instance sur l'encryptage AES...")
         raise SystemExit()
@@ -181,7 +187,7 @@ if __name__ == '__main__':
         Services.show_message_box(
             title='Integration DEVIS',
             text="Le fichier contenant les informations de connexion n'existe pas! Merci de contacter l'administrateur",
-            style=0
+            style=0x30
         )
         raise SystemExit()
         sys.exit()
@@ -245,7 +251,7 @@ if __name__ == '__main__':
         Services.show_message_box(
           title="Integration DEVIS",
           text="Vérifier s'il vous plait si le document au même entete existe déjà dans SAGE! ",
-          style=0
+          style=0x10
         )
         raise SystemExit()
 
@@ -401,7 +407,7 @@ if __name__ == '__main__':
     Services.show_message_box(
         title="Integration DEVIS",
         text=f"{len(set_docligne)} lignes sur le DEVIS N°{do_piece} importé avec succès!",
-        style=0
+        style=0x40
     )
     print("DEVIS importé SUCCES!!...")
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
