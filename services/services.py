@@ -210,9 +210,9 @@ class Services:
 
     @staticmethod
     def control_pf_ccl_ca(connect):
-        df_pf = pd.read_sql_query(sql='''''', con=connect)
-        df_ccl = pd.read_sql_query(sql='''''', con=connect)
-        df_ca = pd.read_sql_query(sql='''''', con=connect)
+        df_pf = pd.read_sql_query(sql="""SELECT [AR_Ref],[AR_Design] FROM [ALU_SQL].[dbo].[F_ARTICLE] WHERE [FA_CodeFamille] NOT LIKE 'MP%'""", con=connect)
+        df_ccl = pd.read_sql_query(sql='''SELECT [CT_Num],[CT_Intitule] FROM [ALU_SQL].[dbo].[F_COMPTET] WHERE [CT_Type] = 0''', con=connect)
+        df_ca = pd.read_sql_query(sql='''SELECT [CA_Num] FROM [ALU_SQL].[dbo].[F_COMPTEA] WHERE [N_Analytique] = 2''', con=connect)
         return df_pf, df_ccl, df_ca
 
 
