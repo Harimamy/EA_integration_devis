@@ -198,6 +198,7 @@ if __name__ == '__main__':
 
         # the client code/CA/PF control start here
         df_pf, df_ccl, df_ca = Services.control_pf_ccl_ca(connect=connexion)
+        set_ca, set_ccl, set_pf = set(df_ca['CA_Num']), set(df_ccl['CT_Intitule']), set(df_pf['AR_Ref'])
 
         # client_code = dict_docentete['client_name']
         client_code = 'MOURTAZA'
@@ -269,6 +270,26 @@ if __name__ == '__main__':
             dict_art_ref = Services.get_dict_art_ref_gamme(connexion=connexion, include_article=set_articles_concerned)
         except Exception as ex:
             logging.ERROR('Exception catched on set article concerned and the dict art ref trying ', ex)
+
+        if all([do_piece in set_ca, client_code in set_ccl, all([art_pf in set_pf for art_pf in set_articles_concerned])]):
+            pass
+        else:
+            msg_concat = ""
+            if do_piece not in set_ca:
+                msg_concat = msg_concat + "Le numero de pièce ou le code affaire n'existe pas sur SAGE"
+            if client_code not in set_ccl:
+                msg_concat = msg_concat + "\nLe client n'existe pas sur SAGE"
+            if not all([art_pf in set_pf for art_pf in set_articles_concerned]):
+                set_art_not_exists = {art_pf for art_pf in set_articles_concerned if art_pf not in set_pf}
+                msg_concat = msg_concat + "\n{} Ce(t) article(s) n'existe(nt) pas sur SAGE".format(set_art_not_exists)
+            logging.DEBUG(msg_concat)
+            Services.show_message_box(
+                title="Integration DEVIS",
+                text=msg_concat,
+                style=0x30
+            )
+            raise SystemExit()
+
 
         sql_docligne, set_docligne = None, set()
         fill_in1, fill_in2, art_gamme_no2, designation = set(), set(), 0, None
