@@ -1,4 +1,5 @@
 from turtle import color
+import ctypes
 
 import pandas as pd
 
@@ -44,17 +45,15 @@ class Services:
             if any((color_gamme in i, color_gamme.upper() in i, color_gamme.lower() in i, color_gamme.capitalize() in i)):
                 return i[0]
 
-
     @staticmethod
     def find_code_client(client_name, connexion):
-        df_client = pd.read_sql_query(r'SELECT * FROM [dbo].[F_COMPTET] WHERE [CT_Type] = 0', con=connexion)
+        df_client = pd.read_sql_query(r'SELECT * FROM [dbo].[F_COMPTET] WHERE [CT_Type] = 0', con=connexion) # 0 is for client and 1 is for FOUR
         dict_client = {row['CT_Intitule']: row['CT_Num'] for i, row in df_client.iterrows()}
         # for cli in df_client['CT_Intitule']:
         #     # if client_name in cli:
         #     # regex
         #     pass
         return dict_client[client_name]
-
 
     @staticmethod
     def get_dict_art_ref_gamme(connexion, include_article):
@@ -179,5 +178,48 @@ class Services:
             )
         return dict_unite[num_unite]
 
-    # you should use this function for testing if the article is compose or not
+    @staticmethod
+    def calculate_ht(ttc, connexion):
+        tax = pd.read_sql_query("""SELECT [TA_Taux] FROM [dbo].[F_TAXE] WHERE [TA_Intitule] = 'TVA collectée 20%'""", con=connexion)
+        for i, row in tax.iterrows():
+            x = row['TA_Taux']
+        return ttc / (1 + x/100)
 
+    @staticmethod
+    def set_reference(do_ref):
+        ref_response = None
+        if len(do_ref) <= 17:
+            return do_ref.upper().replace("CHANTIER", "").strip()
+        elif "chantier" in do_ref.lower():
+            ref_response = do_ref.upper().replace("CHANTIER", "").strip().split()[0]
+        elif "standard" in do_ref.lower():
+            ref_response = do_ref.upper().replace("STANDARD", "STD").strip()
+            if len(ref_response) <= 17:
+                return ref_response
+            else:
+                return ref_response.split()[1].strip()
+        return ref_response
+
+    @staticmethod
+    def show_message_box(title, text, style):
+        return ctypes.windll.user32.MessageBoxW(0, text, title, style)
+
+    @staticmethod
+    def read_tables_corresponding():
+        pass
+
+    @staticmethod
+    def control_pf_ccl_ca(connect):
+        df_pf = pd.read_sql_query(sql="""SELECT [AR_Ref],[AR_Design] FROM [ALU_SQL].[dbo].[F_ARTICLE] WHERE [FA_CodeFamille] NOT LIKE 'MP%'""", con=connect)
+        df_ccl = pd.read_sql_query(sql='''SELECT [CT_Num],[CT_Intitule] FROM [ALU_SQL].[dbo].[F_COMPTET] WHERE [CT_Type] = 0''', con=connect)
+        df_ca = pd.read_sql_query(sql='''SELECT [CA_Num] FROM [ALU_SQL].[dbo].[F_COMPTEA] WHERE [N_Analytique] = 2''', con=connect)
+        return df_pf, df_ccl, df_ca
+
+
+if __name__ == '__main__':
+    # import connexion_to_sql_server
+    # conn = connexion_to_sql_server.connect_with_pymssql(server='RAVALOHERY-PC', database="ALU_SQL")
+    # test_ht = Services.calculate_ht(ttc=855500, connexion=conn)
+    # print(test_ht)
+    print(Services.set_reference(do_ref="Chantier TAMATAVE BAZABOUZOU"))
+    # print(Services)
