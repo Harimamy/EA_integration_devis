@@ -71,8 +71,8 @@ class Services:
 
         # here is about the association of color gamme correction
     @staticmethod
-    def auto_complete_gam(color):
-        color_treat = color.split(maxsplit=1)[1]
+    def auto_complete_gam(color_treat):
+        # color_treat = color.split(maxsplit=1)[1]
         dict_associate_color = {
             'Bichromate': 'Bichromate',
             'Brute': 'Brut',
@@ -215,6 +215,10 @@ class Services:
         df_ca = pd.read_sql_query(sql='''SELECT [CA_Num] FROM [ALU_SQL].[dbo].[F_COMPTEA] WHERE [N_Analytique] = 2''', con=connect)
         return df_pf, df_ccl, df_ca
 
+    # @staticmethod
+    # def get_corresponding(connexion):
+    #     df_correspondance = pd.read_sql_query(sql="""SELECT * FROM [dbo].[Correspondance_ARTICLES]""", con=connexion)
+    #     return {row['AR_Design_proges']: row['AR_Ref'] for i, row in df_correspondance.iterrows()}
 
 if __name__ == '__main__':
     # import connexion_to_sql_server

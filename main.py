@@ -72,11 +72,12 @@ def process_docentete_df(df_export):
                         do_piece = row[col].split()[-1] if do_piece is None else do_piece
 
                     elif row[col].startswith("Suite à votre demande,"):
-                        global_color = " ".join(str(word) for word in row[col].split() if word.isupper())
+                        global_color = " ".join(filter(lambda x: str(x).isupper(), str(row[col]).split()))
 
                 except Exception as e:
                     print("Exception catched ", e)
                     pass
+
         if all((client_name, do_piece, document_date)):
             print("Client -- ", client_name)
             print("No piece or No Devis -- ", do_piece)
@@ -84,6 +85,7 @@ def process_docentete_df(df_export):
             dict_docentete['do_date'], dict_docentete['client_name'] = document_date, client_name
             dict_docentete['do_piece'], dict_docentete['do_ref'], dict_docentete['global_color'] = do_piece, do_ref, global_color
             break
+    # return dict_docentete, global_color
     return dict_docentete
 
 
@@ -162,8 +164,10 @@ if __name__ == '__main__':
             style=0x30
         )
         raise SystemExit()
-        sys.exit()
+
     database_name = list_info_connex[1]
+
+    # connexion on the server precised on the file server.ini info connex
     # connexion = connect_with_pymssql_login(
     #     server=list_info_connex[0],
     #     database=database_name,
@@ -171,6 +175,7 @@ if __name__ == '__main__':
     #     password=class_aes.decrypt(list_info_connex[3])
     # )
 
+    # connexion on the local server
     connexion = connect_with_pymssql(server='RAVALOHERY-PC', database='ALU_SQL')
 
     # should follow on each iteration on the list named list_files here
@@ -203,7 +208,7 @@ if __name__ == '__main__':
         # client_code = dict_docentete['client_name']
         client_code = 'MOURTAZA'
         client_name = Services.find_code_client(client_code, connexion=connexion)
-        date_hour = date_hour = "{}{:02d}{:02d}{:02d}".format("000", time_now.hour, time_now.minute, time_now.second)
+        date_hour = "{}{:02d}{:02d}{:02d}".format("000", time_now.hour, time_now.minute, time_now.second)
         work_site = Services.set_reference(do_ref)
         # list_box.insert(index+1, "Etablissement de la connexion à la base de données..")
         index += 1
@@ -255,6 +260,7 @@ if __name__ == '__main__':
             raise SystemExit()
 
         dict_AR_design, dict_AR_unite = Services.prepare_df_articles(connexion=connexion)
+        # dict_corresp = Services.get_corresponding(connexion=connexion)
 
         # Here is to add the art_ref for each PF
         df_docligne['Référence'] = ''
@@ -270,26 +276,25 @@ if __name__ == '__main__':
             dict_art_ref = Services.get_dict_art_ref_gamme(connexion=connexion, include_article=set_articles_concerned)
         except Exception as ex:
             logging.ERROR('Exception catched on set article concerned and the dict art ref trying ', ex)
-
-        if all([do_piece in set_ca, client_code in set_ccl, all([art_pf in set_pf for art_pf in set_articles_concerned])]):
-            pass
-        else:
-            msg_concat = ""
-            if do_piece not in set_ca:
-                msg_concat = msg_concat + "Le numero de pièce ou le code affaire n'existe pas sur SAGE"
-            if client_code not in set_ccl:
-                msg_concat = msg_concat + "\nLe client n'existe pas sur SAGE"
-            if not all([art_pf in set_pf for art_pf in set_articles_concerned]):
-                set_art_not_exists = {art_pf for art_pf in set_articles_concerned if art_pf not in set_pf}
-                msg_concat = msg_concat + "\n{} Ce(t) article(s) n'existe(nt) pas sur SAGE".format(set_art_not_exists)
-            logging.DEBUG(msg_concat)
-            Services.show_message_box(
-                title="Integration DEVIS",
-                text=msg_concat,
-                style=0x30
-            )
-            raise SystemExit()
-
+        #
+        # if all([do_piece in set_ca, client_code in set_ccl, all([art_pf in set_pf for art_pf in set_articles_concerned])]):
+        #     pass
+        # else:
+        #     msg_concat = ""
+        #     if do_piece not in set_ca:
+        #         msg_concat = msg_concat + "Le numero de pièce ou le code affaire n'existe pas sur SAGE"
+        #     if client_code not in set_ccl:
+        #         msg_concat = msg_concat + "\nLe client n'existe pas sur SAGE"
+        #     if not all([art_pf in set_pf for art_pf in set_articles_concerned]):
+        #         set_art_not_exists = {art_pf for art_pf in set_articles_concerned if art_pf not in set_pf}
+        #         msg_concat = msg_concat + "\n{} Ce(t) article(s) n'existe(nt) pas sur SAGE".format(set_art_not_exists)
+        #     logging.DEBUG(msg_concat)
+        #     Services.show_message_box(
+        #         title="Integration DEVIS",
+        #         text=msg_concat,
+        #         style=0x30
+        #     )
+        #     raise SystemExit()
 
         sql_docligne, set_docligne = None, set()
         fill_in1, fill_in2, art_gamme_no2, designation = set(), set(), 0, None
@@ -321,7 +326,7 @@ if __name__ == '__main__':
                                    [DL_NoRef],[DL_PUDevise],[DL_PUTTC],[DO_DateLivr],[CA_Num],[DL_Taxe3],[DL_TypeTaux3],[DL_TypeTaxe3],[DL_Frais],
                                    [DL_Valorise],[AR_RefCompose],[DL_NonLivre],[AC_RefClient],[DL_MontantHT],[DL_MontantTTC],[DL_FactPoids],[DL_Escompte],[DL_PiecePL],
                                    [DL_DatePL],[DL_QtePL],[DL_NoColis],[DL_NoLink],[DL_QteRessource],[DL_TypePL],[DL_DateAvancement],[Largeur],[Hauteur],
-                                   [Remplissage_1],[Remplissage_2])
+                                   [Remplissage_1],[Remplissage_2],[Repere])
                                    VALUES (0, 0, '{client_name}', '{do_piece}', '', '', '{date_document}',
                                    '1900-01-01 00:00:00', '{date_document}', 10000, '{Services.set_reference(do_ref)}', 0, 0, 0, '{art_ref_pf}', '{designation}',
                                    {qte}, {qte}, 0.0, 0.0, 0.0, 0.0, 1,
@@ -331,7 +336,7 @@ if __name__ == '__main__':
                                    1, 0.0, {dl_pu_ttc}, '1900-01-01 00:00:00', '', 0.0, 0, 0, 0.0,
                                    1, NULL, 0,'', {montant_ht}, {montant_ttc}, 0, 0, '',
                                    '1900-01-01 00:00:00', 0.0, '', 0, 0, 0, '1900-01-01 00:00:00', {width}, {height},
-                                   '{"/".join(fill_in2) if art_gamme_no2 is None else ""}', '{"/".join(fill_in1)}')"""
+                                   '{"/".join(fill_in2) if art_gamme_no2 is None else ""}', '{"/".join(fill_in1)}', '{mark}')"""
 
                 # here is the change of place for sql_docligne first test
                 # this docligne exclude all price HT that calculed automatically by sage on réajustement des cumuls
@@ -366,6 +371,10 @@ if __name__ == '__main__':
                 qte, designation = row['Qté'], row['Désignation']
                 art_ref_pf = dict_AR_design[row['Désignation']]
                 art_eu_enumere = Services.find_eu_enumere(num_unite=dict_AR_unite[art_ref_pf])
+                mark_color = str(row["Coloris"]).split(maxsplit=1)
+                mark = mark_color[0]
+                is_global_color = dict_docentete['global_color']
+                color = is_global_color if is_global_color else mark_color[1]
                 dl_pu_ttc = row['P.U. TTC']
                 dl_pu_ht = Services.calculate_ht(ttc=dl_pu_ttc, connexion=connexion)
                 montant_ht = dl_pu_ht * qte
@@ -373,7 +382,7 @@ if __name__ == '__main__':
                 width, height = row['L'], row['H']
                 art_gamme_no = Services.find_artgamme_no(
                     dict_corresp_ref=dict_art_ref,
-                    color_gamme=row["Coloris"] if pd.isna(row["Coloris"]) else Services.auto_complete_gam(row["Coloris"]),
+                    color_gamme=row["Coloris"] if pd.isna(row["Coloris"]) else Services.auto_complete_gam(color),
                     art_ref=art_ref_pf
                 )
 
@@ -386,7 +395,7 @@ if __name__ == '__main__':
                                    [DL_NoRef],[DL_PUDevise],[DL_PUTTC],[DO_DateLivr],[CA_Num],[DL_Taxe3],[DL_TypeTaux3],[DL_TypeTaxe3],[DL_Frais],
                                    [DL_Valorise],[AR_RefCompose],[DL_NonLivre],[AC_RefClient],[DL_MontantHT],[DL_MontantTTC],[DL_FactPoids],[DL_Escompte],[DL_PiecePL],
                                    [DL_DatePL],[DL_QtePL],[DL_NoColis],[DL_NoLink],[DL_QteRessource],[DL_TypePL],[DL_DateAvancement],[Largeur],[Hauteur],
-                                   [Remplissage_1],[Remplissage_2])
+                                   [Remplissage_1],[Remplissage_2],[Repere])
                                    VALUES (0, 0, '{client_name}', '{do_piece}', '', '', '{date_document}',
                                    '1900-01-01 00:00:00', '{date_document}', 10000, '{Services.set_reference(do_ref)}', 0, 0, 0, '{art_ref_pf}', '{designation}',
                                    {qte}, {qte}, 0.0, 0.0, 0.0, 0.0, 1,
@@ -396,7 +405,7 @@ if __name__ == '__main__':
                                    1, 0.0, {dl_pu_ttc}, '1900-01-01 00:00:00', '', 0.0, 0, 0, 0.0,
                                    1, NULL, 0,'', {montant_ht}, {montant_ttc}, 0, 0, '',
                                    '1900-01-01 00:00:00', 0.0, '', 0, 0, 0, '1900-01-01 00:00:00', {width}, {height},
-                                   '{"/".join(fill_in2) if art_gamme_no2 is None else ""}', '{"/".join(fill_in1)}')"""
+                                   '{"/".join(fill_in2) if art_gamme_no2 is None else ""}', '{"/".join(fill_in1)}', '{mark}')"""
 
                 # should verify the DL_Valorise because, this part 1 if compose and 0 if not
                 # the another is for DL_PUTTC
