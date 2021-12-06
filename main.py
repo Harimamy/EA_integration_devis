@@ -48,6 +48,7 @@ def get_df_from_file_input(path):
 # it's valid only on the process for inserting the devis from PROGES
 def process_docentete_df(df_export):
     dict_docentete, client_name, do_piece, document_date, do_ref, global_color = dict(), None, None, None, None, None
+    passed = 0
     for i, (index, row) in enumerate(df_export.iterrows()):
         for col in df_export.columns:
             if any([not document_date, pd.isna(document_date)]):
@@ -72,13 +73,14 @@ def process_docentete_df(df_export):
                         do_piece = row[col].split()[-1] if do_piece is None else do_piece
 
                     elif row[col].startswith("Suite à votre demande,"):
+                        passed = 1
                         global_color = " ".join(filter(lambda x: str(x).isupper(), str(row[col]).split()))
 
                 except Exception as e:
                     print("Exception catched ", e)
                     pass
 
-        if all((client_name, do_piece, document_date)):
+        if all((client_name, do_piece, document_date, passed)):
             print("Client -- ", client_name)
             print("No piece or No Devis -- ", do_piece)
             print("Référence --", do_ref)
@@ -250,13 +252,13 @@ if __name__ == '__main__':
             connex.execute(sql_docentete)
             print("SUCCESS docentete!!")
         except Exception as e:
-            print('Error occurred on the execution of the sql docentete, the detail is ', e)
-            logging.ERROR("please verify the document if exist on the devis document")
             Services.show_message_box(
               title="Integration DEVIS",
               text="Vérifier s'il vous plait si le document au même entete existe déjà dans SAGE! ",
               style=0x10
             )
+            print('Error occurred on the execution of the sql docentete, the detail is ', e)
+            logging.ERROR("please verify the document if exist on the devis document")
             raise SystemExit()
 
         dict_AR_design, dict_AR_unite = Services.prepare_df_articles(connexion=connexion)
@@ -374,6 +376,7 @@ if __name__ == '__main__':
                 mark_color = str(row["Coloris"]).split(maxsplit=1)
                 mark = mark_color[0]
                 is_global_color = dict_docentete['global_color']
+                print(is_global_color)
                 color = is_global_color if is_global_color else mark_color[1]
                 dl_pu_ttc = row['P.U. TTC']
                 dl_pu_ht = Services.calculate_ht(ttc=dl_pu_ttc, connexion=connexion)
