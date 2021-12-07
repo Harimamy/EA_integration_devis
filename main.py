@@ -47,7 +47,7 @@ def get_df_from_file_input(path):
 
 # it's valid only on the process for inserting the devis from PROGES
 def process_docentete_df(df_export):
-    dict_docentete, client_name, do_piece, document_date, do_ref, global_color = dict(), None, None, None, None, None
+    dict_docentete, do_tiers, do_piece, document_date, do_ref, global_color = dict(), None, None, None, None, None
     passed = 0
     for i, (index, row) in enumerate(df_export.iterrows()):
         for col in df_export.columns:
@@ -67,7 +67,8 @@ def process_docentete_df(df_export):
                 try:
                     if all([row[col].__contains__("nom client"), row[col].__contains__(":")]):
                         # there is a little problem here if the first word is not the name of the client
-                        client_name = Services.add_apostrophe(row[col].split(':')[1].strip()) if client_name is None else client_name
+                        do_tiers = Services.add_apostrophe(row[col].split(':')[1].strip()) if do_tiers is None else do_tiers
+                        do_tiers = 'MOURTAZA' if 'MOURTAZA' in do_tiers else do_tiers
 
                     elif row[col].__contains__("Devis N"):
                         do_piece = row[col].split()[-1] if do_piece is None else do_piece
@@ -80,11 +81,11 @@ def process_docentete_df(df_export):
                     print("Exception catched ", e)
                     pass
 
-        if all((client_name, do_piece, document_date, passed)):
-            print("Client -- ", client_name)
+        if all((do_tiers, do_piece, document_date, passed)):
+            print("Client -- ", do_tiers)
             print("No piece or No Devis -- ", do_piece)
             print("Référence --", do_ref)
-            dict_docentete['do_date'], dict_docentete['client_name'] = document_date, client_name
+            dict_docentete['do_date'], dict_docentete['do_tiers'] = document_date, do_tiers
             dict_docentete['do_piece'], dict_docentete['do_ref'], dict_docentete['global_color'] = do_piece, do_ref, global_color
             break
     # return dict_docentete, global_color
@@ -129,6 +130,7 @@ if __name__ == '__main__':
     top = Tk()
     list_box, index = Listbox(top, font=('Tahoma', 10), width=80, height=20), 1
     top.iconbitmap('')
+    project_title = 'Integration DEVIS'
     # list_box.it
     list_box.pack()
     time_now = datetime.now()
@@ -197,6 +199,7 @@ if __name__ == '__main__':
             )
             raise SystemExit()
         do_piece, date_document, do_ref, deposit = dict_docentete['do_piece'], dict_docentete['do_date'], dict_docentete['do_ref'], 1
+        do_tiers = dict_docentete['do_tiers']
         logging.basicConfig(
             filename=r'''C:\Integration SAGE\DEVIS\Log\console_{}.log'''.format(do_piece),
             level=logging.DEBUG,
@@ -208,8 +211,36 @@ if __name__ == '__main__':
         set_ca, set_ccl, set_pf = set(df_ca['CA_Num']), set(df_ccl['CT_Intitule']), set(df_pf['AR_Ref'])
 
         # client_code = dict_docentete['client_name']
-        client_code = 'MOURTAZA'
-        client_name = Services.find_code_client(client_code, connexion=connexion)
+        # client_code = 'MOURTAZA'
+        # client_name = Services.find_code_client(client_code, connexion=connexion)
+        dict_client_code = Services.get_dict_client(connexion=connexion)
+        dict_client_title = Services.group_by_values(dict_value_repeat=dict_client_code)
+        client_code = dict_client_title[do_tiers] if isinstance(dict_client_title[do_tiers], str) else Services.generate_client_code(
+            list_code=dict_client_title[do_tiers], connexion=connexion
+        )
+        # CA control start here
+        set_ca = set(Services.control_ca(connect=connexion)['CA_Num'])
+        if do_piece not in set_ca:
+            result_user = Services.show_message_box(
+                title="Integration BCC",
+                text="Le code affaire n'existe pas, voulez vous le créer automatiquement ?",
+                style=0x04
+            )
+            if result_user == 6:
+                # here is to calling the function that create the new CA_NUM when the user click on Yes button
+                Services.create_ca(connexion=connexion, do_piece=do_piece, do_tiers=do_tiers)
+                Services.show_message_box(
+                    title=project_title,
+                    text=f"""le code affaire {do_piece} a été créé avec succès!""",
+                    style=0
+                )
+            elif result_user == 7:
+                # when the user click on No button
+                raise SystemExit()
+
+
+
+
         date_hour = "{}{:02d}{:02d}{:02d}".format("000", time_now.hour, time_now.minute, time_now.second)
         work_site = Services.set_reference(do_ref)
         # list_box.insert(index+1, "Etablissement de la connexion à la base de données..")
@@ -234,8 +265,8 @@ if __name__ == '__main__':
                             [DO_TypeFranco],  [DO_ValFranco],  [DO_TypeLigneFranco],  [DO_Taxe1],  [DO_TypeTaux1],  [DO_TypeTaxe1],  
                             [DO_Taxe2],  [DO_TypeTaux2],  [DO_TypeTaxe2],  [DO_Taxe3],  [DO_TypeTaux3],  [DO_TypeTaxe3],  [DO_MajCpta],  
                             [DO_Motif],  [DO_Contact],  [DO_FactureElec],  [DO_TypeTransac],  [Chantier],  [Optimisation])
-                            VALUES(0, 0, '{do_piece}', '{date_document}', '{work_site}', '{client_name}', 
-                                   0, 1, 0, 0.0, {deposit}, 0, '{client_name}', 1, 
+                            VALUES(0, 0, '{do_piece}', '{date_document}', '{work_site}', '{client_code}', 
+                                   0, 1, 0, 0.0, {deposit}, 0, '{client_code}', 1, 
                                    1, 0, 0.0, 0, 0, '{do_piece}', '', 
                                    '', '', '', 0, '1900-01-01 00:00:00', 1, 1, 
                                    1, 1, 11, 0, 0.0, 21, 1, 
@@ -329,7 +360,7 @@ if __name__ == '__main__':
                                    [DL_Valorise],[AR_RefCompose],[DL_NonLivre],[AC_RefClient],[DL_MontantHT],[DL_MontantTTC],[DL_FactPoids],[DL_Escompte],[DL_PiecePL],
                                    [DL_DatePL],[DL_QtePL],[DL_NoColis],[DL_NoLink],[DL_QteRessource],[DL_TypePL],[DL_DateAvancement],[Largeur],[Hauteur],
                                    [Remplissage_1],[Remplissage_2],[Repere])
-                                   VALUES (0, 0, '{client_name}', '{do_piece}', '', '', '{date_document}',
+                                   VALUES (0, 0, '{client_code}', '{do_piece}', '', '', '{date_document}',
                                    '1900-01-01 00:00:00', '{date_document}', 10000, '{Services.set_reference(do_ref)}', 0, 0, 0, '{art_ref_pf}', '{designation}',
                                    {qte}, {qte}, 0.0, 0.0, 0.0, 0.0, 1,
                                    0.0, 0, 0.0, 0, {dl_pu_ht},
@@ -399,7 +430,7 @@ if __name__ == '__main__':
                                    [DL_Valorise],[AR_RefCompose],[DL_NonLivre],[AC_RefClient],[DL_MontantHT],[DL_MontantTTC],[DL_FactPoids],[DL_Escompte],[DL_PiecePL],
                                    [DL_DatePL],[DL_QtePL],[DL_NoColis],[DL_NoLink],[DL_QteRessource],[DL_TypePL],[DL_DateAvancement],[Largeur],[Hauteur],
                                    [Remplissage_1],[Remplissage_2],[Repere])
-                                   VALUES (0, 0, '{client_name}', '{do_piece}', '', '', '{date_document}',
+                                   VALUES (0, 0, '{client_code}', '{do_piece}', '', '', '{date_document}',
                                    '1900-01-01 00:00:00', '{date_document}', 10000, '{Services.set_reference(do_ref)}', 0, 0, 0, '{art_ref_pf}', '{designation}',
                                    {qte}, {qte}, 0.0, 0.0, 0.0, 0.0, 1,
                                    0.0, 0, 0.0, 0, {dl_pu_ht},

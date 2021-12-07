@@ -56,6 +56,12 @@ class Services:
         return dict_client[client_name]
 
     @staticmethod
+    def get_dict_client(connexion):
+        df_client = pd.read_sql_query(r'SELECT * FROM [dbo].[F_COMPTET] WHERE [CT_Type] = 0', con=connexion) # 0 is for client and 1 is for FOUR
+        dict_client = {row['CT_Num']: row['CT_Intitule'] for i, row in df_client.iterrows()}
+        return dict_client
+
+    @staticmethod
     def get_dict_art_ref_gamme(connexion, include_article):
         full_artgamme = Services.read_sql_speed_up(query='''SELECT * FROM [dbo].[F_ARTGAMME]''', db_engine=connexion)
         required_artgamme = full_artgamme.loc[full_artgamme['AR_Ref'].isin(include_article)][['AR_Ref', 'AG_No', 'EG_Enumere']]
@@ -219,6 +225,90 @@ class Services:
     # def get_corresponding(connexion):
     #     df_correspondance = pd.read_sql_query(sql="""SELECT * FROM [dbo].[Correspondance_ARTICLES]""", con=connexion)
     #     return {row['AR_Design_proges']: row['AR_Ref'] for i, row in df_correspondance.iterrows()}
+
+    @classmethod
+    def generate_client_code(cls, list_code, connexion):
+        for code in list_code:
+            # here is the part for testing if the client code have some mouvment and startswith CL and if the condition is filled then return the code
+            if all((code.startswith('CL'), cls.check_mvt_client(client_code=code, connexion=connexion))):
+                return code
+
+        for code in list_code:
+            # here is to test case when the code start with CL and the client not have the movement
+            if all((code.startswith('CL'), not cls.check_mvt_client(client_code=code, connexion=connexion))):
+                return code
+
+        for code in list_code:
+            if all([not code.startswith('CL'), cls.check_mvt_client(client_code=code, connexion=connexion)]):
+                return code
+
+        for code in list_code:
+            if all([not code.startswith('CL'), not cls.check_mvt_client(client_code=code, connexion=connexion)]):
+                return code
+
+    # this code is from sololearn on my account Harimamy Ravalohery (Code bits)
+    @staticmethod
+    def group_by_values(dict_value_repeat):
+        output = {}
+        for keys, values in dict_value_repeat.items():
+            if values in output.keys():
+                output[values].append(keys)
+            else:
+                l = [keys]
+                output[values] = l
+        return output
+
+    @staticmethod
+    def control_ca(connect):
+        return pd.read_sql_query(sql='''SELECT [CA_Num] FROM [dbo].[F_COMPTEA] WHERE [N_Analytique] = 2''', con=connect)
+
+    @staticmethod
+    def create_ca(connexion, do_piece, do_tiers):
+        query = f"""INSERT INTO [dbo].[F_COMPTEA]
+                           ([N_Analytique]
+                           ,[CA_Num]
+                           ,[CA_Intitule]
+                           ,[CA_Type]
+                           ,[CA_Classement]
+                           ,[CA_Raccourci]
+                           ,[CA_Report]
+                           ,[N_Analyse]
+                           ,[CA_Saut]
+                           ,[CA_Sommeil]
+                           ,[CA_DateCreate]
+                           ,[CA_Domaine]
+                           ,[CA_Achat]
+                           ,[CA_Vente])
+                     VALUES
+                           (2
+                           ,'{do_piece}'
+                           ,'{do_tiers}'
+                           ,0
+                           ,'{do_tiers}'
+                           ,''
+                           ,1
+                           ,1
+                           ,1
+                           ,0
+                           ,GETDATE()
+                           ,0
+                           ,0.0
+                           ,0.0)"""
+        with connexion.connect() as connex:
+            try:
+                connex.execute(query)
+            except (Exception, ConnectionError, ConnectionAbortedError, ConnectionRefusedError, ConnectionResetError) as e:
+                print('Error occured when the program execute the query for creating the new CA_NUM as ', e)
+                raise SystemExit()
+
+    @staticmethod
+    def check_mvt_client(client_code, connexion):
+        df_client_doc = pd.read_sql_query(
+            sql=f'''SELECT [DO_Piece], [DO_Tiers] FROM [dbo].[F_DOCENTETE] WHERE [DO_Tiers] = '{client_code}' ''',
+            con=connexion
+        )
+        return False if df_client_doc.empty else True
+
 
 if __name__ == '__main__':
     # import connexion_to_sql_server
