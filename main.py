@@ -292,7 +292,7 @@ if __name__ == '__main__':
             logging.ERROR("please verify the document if exist on the devis document")
             raise SystemExit()
 
-        dict_AR_design, dict_AR_unite = Services.prepare_df_articles(connexion=connexion)
+        dict_design_art, dict_AR_unite, dict_art_design = Services.prepare_df_articles(connexion=connexion)
         # dict_corresp = Services.get_corresponding(connexion=connexion)
 
         # Here is to add the art_ref for each PF
@@ -300,7 +300,8 @@ if __name__ == '__main__':
         for i, row in df_docligne.iterrows():
             if all([pd.notna(row['Qté']), pd.notna(row['L']), pd.notna(row['H']), pd.notna(row['P.U. TTC']), pd.notna(row['P.T. TTC'])]):
                 print(row['Désignation'])
-                df_docligne.at[i, 'Référence'] = dict_AR_design[row['Désignation']]
+                df_docligne.at[i, 'Référence'] = dict_design_art[row['Désignation']]
+                df_docligne.at[i, 'Désignation'] = dict_art_design[dict_design_art[row['Désignation']]]
 
         # df_docligne['Référence'] = [dict_AR_design[design] for design in df_docligne['Désignation']]
         print(df_docligne.columns)
@@ -394,7 +395,8 @@ if __name__ == '__main__':
                 #                    '1900-01-01 00:00:00', 0.0, '', 0, 0, 0, '1900-01-01 00:00:00', {width}, {height},
                 #                    '{fill_in1.strip()}', '{fill_in2.strip()}')"""
 
-            else:
+            elif all([pd.notna(row['Coloris']), pd.notna(row['Qté']), pd.notna(row['L']), pd.notna(row['H']), pd.notna(row['P.U. TTC']), pd.notna(row['P.T. TTC'])]):
+                # "ensemble" that's mean together does match here
                 # the process read here for each PF on the top title
                 fill_in1, fill_in2 = set(), set()
                 if sql_docligne:
@@ -402,7 +404,7 @@ if __name__ == '__main__':
                 unit_cost_price = "NULL"
                 dl_cmup = 'NULL'
                 qte, designation = row['Qté'], row['Désignation']
-                art_ref_pf = dict_AR_design[row['Désignation']]
+                art_ref_pf = dict_design_art[row['Désignation']]
                 art_eu_enumere = Services.find_eu_enumere(num_unite=dict_AR_unite[art_ref_pf])
                 mark_color = str(row["Coloris"]).split(maxsplit=1)
                 mark = mark_color[0]

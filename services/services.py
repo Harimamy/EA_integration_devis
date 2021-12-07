@@ -31,7 +31,9 @@ class Services:
         df_article = pd.read_sql_query(sql='''SELECT * FROM [dbo].[F_ARTICLE]''', con=connexion)
         dict_design_article = {row['AR_Design']: str(row['AR_Ref']) for i, row in df_article.iterrows()}
         dict_article_unite = {str(row['AR_Ref']): row['AR_UniteVen'] for i, row in df_article.iterrows()}
-        return dict_design_article, dict_article_unite
+        dict_art_design = {str(row['AR_Ref']): row['AR_Design'] for i, row in df_article.iterrows()}
+        dict_design_article.update({'Ensemble(s) comprenant :': 'ENS1'})
+        return dict_design_article, dict_article_unite, dict_art_design
 
     # the only error that occured is if the article is not in gamme on the file export from proges
     # and the same article is in gamme on sage
